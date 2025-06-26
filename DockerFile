@@ -2,7 +2,7 @@
 FROM python:3.11-slim
 
 # 2. Setting the working directory in the container
-WORKDIR /app
+WORKDIR /urekaibackend
 
 # 3. Setting environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -18,5 +18,5 @@ RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
 # 5. Copying application code into the container
-COPY ./app /app/
-COPY ./scripts /app/scripts
+COPY ./app /urekaibackend/app
+COPY ./scripts /urekaibackend/scripts
