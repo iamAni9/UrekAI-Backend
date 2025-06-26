@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: api
+    env: python
+    build:
+      dockerfile: Dockerfile
+    envVars:
+      - key: PORT
+        value: 10000
+    # healthCheckPath: /health
+    startCommand: gunicorn -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT "app.main:create_app()" --factory
+
+  - type: worker
+    name: worker
+    env: python
+    build:
+      dockerfile: Dockerfile
+    startCommand: python -m app.workers.csv_worker
+
+jobs:
+  - type: deploy
+    name: migration
+    env: python
+    build:
+      dockerfile: Dockerfile
+    startCommand: python scripts/migration.py
