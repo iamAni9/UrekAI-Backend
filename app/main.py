@@ -45,8 +45,8 @@ def create_app() -> FastAPI:
         SessionMiddleware,
         secret_key=settings.SESSION_SECRET,
         session_cookie="session",
-        same_site="none" if settings.NODE_ENV == "production" else "lax",
-        https_only=(settings.NODE_ENV == "production"),
+        same_site="none" if settings.ENV_PORT == "production" else "lax",
+        https_only=(settings.ENV_PORT == "production"),
         max_age=3600 * 24 * 7,
     )
 
