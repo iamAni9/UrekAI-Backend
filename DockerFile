@@ -20,3 +20,11 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # 5. Copying application code into the container
 COPY ./app /urekaibackend/app
 COPY ./scripts /urekaibackend/scripts
+
+# CMD ["sh", "-c", "python scripts/migration.py && gunicorn -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:10000 'app.main:create_app()' --factory"]
+
+# 7. Copying supervisor configuration
+COPY ./supervisord.conf /etc/supervisord.conf
+
+# 8. Running supervisor
+CMD ["supervisord", "-c", "/etc/supervisord.conf"]
