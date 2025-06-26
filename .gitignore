@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+dist/
+build/
+.env
+.env.*
+*.db
+*.sqlite3
+*.log
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# Docker
+# Don't ignore Dockerfile or docker-compose.yml if used for build
+# Ignore volumes, data, etc.
+*.pid
+*.tar
+*.bak
+
+# Pydantic cache
+__pydantic_cache__/
+
+# mypy / Pyright
+.mypy_cache/
+.pyright/
+
+# VS Code settings
+.vscode/
+
+# Virtual Environments
+.myenv/
+myenv/
