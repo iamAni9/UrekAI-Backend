@@ -4,7 +4,7 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     FRONTEND_ORIGIN: str
     SESSION_SECRET: str = "fallback-secret"
-    NODE_ENV: str = "development"
+    ENV_PORT: str = "development"
     PORT: int = 10000
     DATABASE_URL: str
     GOOGLE_API_KEY: str
