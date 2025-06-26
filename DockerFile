@@ -1,12 +1,15 @@
 # 1. Using an official Python runtime as a parent image
-FROM python:3.10-slim
+FROM python:3.11-slim
 
 # 2. Setting the working directory in the container
 WORKDIR /app
 
 # 3. Setting environment variables
-ENV PYTHONDONTWRITEBYTECODE 1
-ENV PYTHONUNBUFFERED 1
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    # PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_WARN_SCRIPT_LOCATION=0
 
 # 4. Copying and installing Python dependencies
 # This is done in a separate step to leverage Docker's layer caching.
