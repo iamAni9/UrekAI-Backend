@@ -18,5 +18,5 @@ RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
 # 5. Copying application code into the container
-COPY ./app /app/app
+COPY ./app /app/
 COPY ./scripts /app/scripts

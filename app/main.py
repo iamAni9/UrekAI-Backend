@@ -61,11 +61,7 @@ def create_app() -> FastAPI:
     @app.get("/health")
     async def health():
         logger.info("Health check accessed")
-        return {
-            "status": "healthy",
-            "timestamp": __import__("datetime").datetime.utcnow().isoformat(),
-            "service": "backend-service"
-        }
+        return {"status": "healthy"}
 
     @app.middleware("http")
     async def catch_json_errors(request: Request, call_next):

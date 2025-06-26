@@ -7,8 +7,9 @@ services:
     envVars:
       - key: PORT
         value: 10000
-    # healthCheckPath: /health
-    startCommand: gunicorn -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT "app.main:create_app()" --factory
+    healthCheckPath: /health
+    startCommand: gunicorn -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT "main:create_app()" --factory
+    deployWaitTimeout: 300
 
   - type: worker
     name: worker
@@ -16,6 +17,7 @@ services:
     build:
       dockerfile: Dockerfile
     startCommand: python -m app.workers.csv_worker
+    deployWaitTimeout: 300
 
 jobs:
   - type: deploy
@@ -24,3 +26,4 @@ jobs:
     build:
       dockerfile: Dockerfile
     startCommand: python scripts/migration.py
+    trigger: on-deploy
