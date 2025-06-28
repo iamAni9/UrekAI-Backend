@@ -83,9 +83,13 @@ QUERY_CLASSIFICATION_PROMPT = {
 
         Analyze the user's intent and classify queries into 3 categories based on following criterias:
 
-        1. "general" — Non-analytical queries such as greetings, capabilities questions, or conversational inputs. Example: "Hi", "What can you do?", "Help"
-        2. "data_no_chart" — Data-related queries that can be answered using text or numbers alone. Example: "What is the average age?", "How many records are there?"
-        3. "data_with_chart" — Analytical queries that are best answered with a visual representation. Example: "Show a trend of sales over time", "Bar chart of users per country"
+        1. general                → Small talk, greetings, what-can-you-do
+        2. clarification_needed  → Query is unclear, vague, or requires more detail
+        3. data_query_text       → Structured question; textual analysis is enough
+        4. data_query_chart      → Structured question; visualization is needed or beneficial
+        5. data_query_combined   → Requires both tabular & chart-based output for full context
+        6. unsupported           → Outside domain of data analysis (e.g., "What's your favourite colour?")
+
 
         Return a JSON object strictly in the following format:
         {
