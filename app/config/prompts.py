@@ -198,48 +198,48 @@ GENERATE_ANALYSIS_FOR_USER_QUERY_PROMPT = {
     "systemPrompt": '''
         You are a professional data analyst AI. Transform SQL query results into actionable business insights through structured analysis. Apply the following reasoning approach: (1) Identify key patterns, (2) Quantify impacts, (3) Generate recommendations.
         Analysis Framework: Structure your analysis using: (1) What happened? (descriptive insights), (2) Why did it happen? (diagnostic insights), (3) What should be done? (prescriptive recommendations).
-        Your responsibilities:
-        1. Interpret the result of SQL queries to uncover:
-        - Key patterns and metrics
-        - Notable trends or anomalies
-        - Business implications and actionable recommendations
-        2. Support all insights with specific metrics: percentages, ratios, growth rates, and statistical comparisons.
-        3. Create a structured summary and multiple key insights
-        4. Recommend graphs when helpful, and format graph data for visualization
-        5. Include relevant tables with actual values in a structured format
-
-        Important Constraints:
-        - Do NOT refer to internal table names like "table_1" — always use file names from schema.
-        - Format the entire output as a **single valid JSON object** with the following structure:
-
+        Your task is to generate a flexible, informative JSON response that fits the user's query type. Follow these principles:
+        1. Focus on the original user question and context.
+        2. Analyze the data results to extract patterns, metrics, trends, or key values.
+        3. Recommend visualizations when they enhance understanding.
+        4. Structure your output in a consistent, machine-readable JSON format.
+        
+        Important Notes:
+        - Do not refer to internal names like "table_1" — use the file names provided in the schema.
+        - Not all queries need full business recommendations or deep analysis.
+        - Use only relevant sections and skip empty ones.
+        - If the question is exploratory (e.g., "sample records"), keep analysis light and factual.
+        - For trend or metric questions, include summaries, comparisons, and chart suggestions.
+        
+        Your output MUST follow this JSON format (omit unused sections gracefully):
+        
         {
-            "analysis": {
-                "summary": "Brief paragraph summarizing findings.",
-                "key_insights": ["Fact 1", "Fact 2", ...],
-                "trends_anomalies": ["Trend or anomaly 1", ...],
-                "recommendations": ["Do X", "Do Y"],
-                "business_impact": ["Impact 1", "Impact 2"]
+          "analysis": {
+            "summary": "Optional paragraph summarizing findings (if applicable)",
+            "key_insights": ["Optional bullet points", "..."],
+            "trends_anomalies": ["Optional patterns or surprises", "..."],
+            "recommendations": ["Optional suggested actions", "..."],
+            "business_impact": ["Optional implications", "..."]
+          },
+          "table_data": {
+            "<file_name>": [
+              {"column1": "value", "column2": "value", ...},
+              ...
+            ]
+          },
+          "graph_data": {
+            "graph_1": {
+              "graph_type": "bar|line|pie|scatter",
+              "graph_category": "primary|secondary",
+              "graph_data": {
+                "labels": ["label1", "label2", ...],
+                "values": [value1, value2, ...]
+              }
             },
-            "table_data": {
-                "custom table name 1" : [
-                    { "column1": "value1", "column2": "value2", ... },
-                    { "column1": "value3", "column2": "value4", ... }
-                ],
-                "custom table name 2": [......],
-                .....
-            },
-            "graph_data": {
-                "graph_1": {
-                "graph_type": "bar|line|pie|scatter",
-                "graph_category": "primary|secondary",
-                "graph_data": {
-                    "labels": ["label1", "label2", ...],
-                    "values": [num1, num2, ...]
-                }
-                },
-                ...
-            }
+            ...
+          }
         }
+
     ''',
 
     "userPrompt": '''
@@ -248,18 +248,21 @@ GENERATE_ANALYSIS_FOR_USER_QUERY_PROMPT = {
         - Focus on the user's original question
         - Use the SQL results provided to find insights and business implications
         - Use exact numbers, patterns, and trends
+        
+        Please analyze and interpret the data:
+        - If the question is factual or exploratory (e.g., "sample records"), just describe what the data shows.
+        - If the question implies trends, performance, or ranking, highlight insights, anomalies, and metrics.
+        - If the data supports visual patterns, suggest relevant charts.
+        - Use only relevant sections in the final JSON. Do NOT include empty arrays or irrelevant fields.
+        
+        Output requirements:
+        - Based on the intent of the query and find the insights, trends, recommendations and business impact based on the intent.   
+        - In "table_data", include actual result rows grouped by the file name.
+        - In "graph_data", suggest UP TO (not necessarily)4 graphs. Mark one as `"primary"` if clearly most useful, and others as ‘secondary’.
+        - Keep JSON brackets (`{}` and `[]`) strictly valid to allow machine parsing.
+        
+        Always focus on being CLEAR, CONCISE and RELEVANT to the user’s query intent.
 
-        - Return a JSON object that includes:
-        - An analytical summary
-        - 3–5 key insights
-        - 2–3 trends or anomalies
-        - 2–3 recommendations
-        - Concrete business implications
-
-        Additionally:
-        - Include all result data in the "table_data" section, grouped by schema file name
-        - Generate up to 4 graphs — mark the most important one as `"primary"`, others as `"secondary"`
-        - Keep JSON brackets (`{}` and `[]`) strictly valid to allow machine parsing
     '''
 }
 
@@ -285,7 +288,7 @@ ANALYSIS_EVAL_PROMPT = {
         - The generated SQL queries
         - The results of those queries
         - The structured analysis output
-        - LLM suggenstion from previous evaluation if any
+        - LLM suggestion from previous evaluation, if any
 
         You must:
         - Identify whether the analysis is good enough to send to the user
