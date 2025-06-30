@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from fastapi import HTTPException, Request, Response
 from fastapi.responses import JSONResponse
 
-from app.config.logger import logger
+from app.config.logger import get_logger
 from app.config.postgres import database as db
 from app.models.gemini import query_ai
 from app.utils.uniqueId import str_to_uuid
@@ -26,6 +26,8 @@ class QueryResponse(BaseModel):
     data: Optional[Dict[str, Any]] = None
     message: Optional[str] = None
     error: Optional[str] = None
+
+logger = get_logger("API Logger")
 
 # Helper functions
 async def sleep_ms(ms: int):
@@ -94,18 +96,18 @@ async def classify_query(user_query: str) -> QueryClassification:
         
         try:
             parsed = json.loads(json_str)
-            
+            logger.info(f"Parsed Classification Query: {parsed}")
             # Validate the response structure
             if not parsed.get('type') or not parsed.get('message'):
                 raise ValueError('Invalid classification response structure')
             
             # Validate the type value
-            if parsed['type'] not in ['general', 'data_no_chart', 'data_with_chart']:
-                raise ValueError('Invalid classification type')
+            # if parsed['type'] not in ['general', 'data_query_text', 'data_query_chart', 'data_query_combined', 'unsupported']:
+            #     raise ValueError('Invalid classification type')
             
             return QueryClassification(**parsed)
         except (json.JSONDecodeError, ValueError) as e:
-            logger.error(f'Failed to parse classification response: {json_str}')
+            logger.error(f'Failed to parse classification response: {json_str}, {e}')
             # Return default classification
             return QueryClassification(
                 type='general',
@@ -145,7 +147,7 @@ async def generate_sql_queries(
     
     return await retry_operation(generate_operation, 'SQL Multi-Query Generation')
 
-async def generate_analysis(query_results: str, user_query: str) -> Dict[str, Any]:
+async def generate_analysis(query_results: str, user_query: str, classification_type: str) -> Dict[str, Any]:
     """Generate analysis from query results"""
     from app.config.prompts import GENERATE_ANALYSIS_FOR_USER_QUERY_PROMPT
     
@@ -154,6 +156,7 @@ async def generate_analysis(query_results: str, user_query: str) -> Dict[str, An
         Context:
         - Query Results: {json.dumps(query_results)}
         - Original User Question: {user_query}
+        - Query Classification Message: {classification_type}
 
         {GENERATE_ANALYSIS_FOR_USER_QUERY_PROMPT["userPrompt"]}
     """
@@ -365,13 +368,13 @@ async def response_user_query(request: Request, response: Response) -> JSONRespo
         classification = await classify_query(user_query)
         logger.info(f"Query classification: {classification.dict()}")
         
-        if classification.type == 'general':
+        if classification.type in ['general', 'unsupported']:
             return JSONResponse(
                 status_code=200,
                 content={
                     "success": True,
                     "data": {
-                        "type": "general",
+                        "type": classification.type,
                         "message": classification.message,
                     }
                 }
@@ -423,7 +426,7 @@ async def response_user_query(request: Request, response: Response) -> JSONRespo
                 ])
                 logger.info(f"Queries and results: {structured_result}")
                 
-                analysis_results = await generate_analysis(structured_result, user_query)
+                analysis_results = await generate_analysis(structured_result, user_query, classification.message)
                 
                 if not analysis_results:
                     logger.warning('Generated analysis failed evaluation')

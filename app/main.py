@@ -3,11 +3,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
 from starlette.middleware.sessions import SessionMiddleware
 from app.config.settings import settings
-from app.config.logger import logger
+from app.config.logger import get_logger
 from app.routes import register_routers
 from app.config.postgres import database as db
 from contextlib import asynccontextmanager
 
+logger = get_logger("API Logger")
 
 def create_app() -> FastAPI:
     @asynccontextmanager

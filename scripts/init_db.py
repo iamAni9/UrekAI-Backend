@@ -3,7 +3,7 @@ import time
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
-print("🚀 Starting database initialization script...")
+print("Starting database initialization script...")
 time.sleep(5) 
 
 try:
@@ -11,10 +11,10 @@ try:
         dsn=os.environ["DATABASE_URL"],
         cursor_factory=RealDictCursor
     )
-    print("🐘 Successfully connected to PostgreSQL!")
+    print("Successfully connected to PostgreSQL!")
 
     with conn.cursor() as cursor:
-        print("🔧 Creating tables if they don't exist...")
+        print("Creating tables if they don't exist...")
 
         cursor.execute("""
            CREATE TABLE IF NOT EXISTS users (
@@ -70,10 +70,10 @@ try:
         print("✅ Database initialization complete. Tables are ready.")
 
 except psycopg2.OperationalError as e:
-    print(f"❌ Could not connect to the database: {e}")
+    print(f"Could not connect to the database: {e}")
     exit(1)
 except Exception as e:
-    print(f"❌ An unexpected error occurred: {e}")
+    print(f"An unexpected error occurred: {e}")
     exit(1)
 finally:
     if 'conn' in locals() and conn is not None:

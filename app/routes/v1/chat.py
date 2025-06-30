@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Request, Response
 from app.controllers import chat_controller
-from app.config.logger import logger
+from app.config.logger import get_logger
 
+logger = get_logger("API Logger")
 router = APIRouter()
 
 @router.get("/")

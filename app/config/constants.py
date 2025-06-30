@@ -8,6 +8,9 @@ MAX_RETRY_ATTEMPTS = 3
 MAX_EVAL_ITERATION = 3
 INITIAL_RETRY_DELAY = 1000  # milliseconds
 
+CSV_NOTIFY_CHANNEL = 'csv_job'
+EXCEL_NOTIFY_CHANNEL = 'excel_job'
+
 DATA_TIME_FORMAT = """
     Date Only:
     - YYYY-MM-DD

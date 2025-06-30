@@ -1,9 +1,8 @@
-import logging
+from .logger import get_logger
 from databases import Database
 from .settings import settings
 
-logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
+logger = get_logger("API Logger")
 
 DATABASE_URL = settings.DATABASE_URL
 

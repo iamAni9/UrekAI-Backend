@@ -2,10 +2,12 @@ from fastapi import UploadFile,  Request, status
 from fastapi.responses import JSONResponse
 from typing import List
 from pathlib import Path
-from app.config.logger import logger
+from app.config.logger import get_logger
 from app.config.postgres import database as db
 import uuid
 from app.utils.uniqueId import generate_unique_id, str_to_uuid
+
+logger = get_logger("API Logger")
 
 async def check_user_exists(userid, email):
     try:
@@ -18,11 +20,11 @@ async def check_user_exists(userid, email):
 def generate_table_id():
     return uuid.uuid4().hex  # 32-character hex string
 
-async def update_csv_queue(job_data):
+async def update_job_queue(job_data, queue_name, channel_name, payload):
     try:
         async with db.transaction():
-            await db.execute("""
-                INSERT INTO csv_queue (
+            await db.execute(f"""
+                INSERT INTO {queue_name} (
                     upload_id, user_id, email, table_name, file_path, original_file_name
                 ) VALUES (
                     :upload_id, :user_id, :email, :table_name, :file_path, :original_file_name
@@ -35,7 +37,7 @@ async def update_csv_queue(job_data):
                  "file_path": job_data["filePath"],
                  "original_file_name": job_data["originalFileName"]
             })
-            await db.execute("NOTIFY new_csv_job;")
+            await db.execute(f"NOTIFY {channel_name}, '{payload}';")
         logger.info(f"Successfully added job {job_data['uploadId']} and sent notification.")
     except Exception as error:
         logger.error(f"Error inserting into CSV queue: {error}")
@@ -88,8 +90,7 @@ async def file_upload_handler(request: Request, files: List[UploadFile]):
 
         for file in files:
             try:
-                # ext = Path(file.filename).suffix.lower()
-                ext = ".csv"
+                ext = Path(file.filename).suffix.lower()
                 unique_table_id = generate_unique_id()
                 table_name = f"table_{unique_table_id}"
 
@@ -114,9 +115,9 @@ async def file_upload_handler(request: Request, files: List[UploadFile]):
                 logger.info("Processing file", extra={"file": "ABCD", "tableName": table_name})
 
                 if ext == ".csv":
-                    await update_csv_queue(job_data)
-                # elif ext in [".xlsx", ".xls"]:
-                #     await excel_queue.enqueue(job_data)
+                    await update_job_queue(job_data, "csv_queue", "csv_job", "csv")
+                elif ext in [".xlsx", ".xls"]:
+                    await update_job_queue(job_data, "excel_queue", "excel_job", "excel")
                 # elif ext == ".json":
                 #     await json_queue.enqueue(job_data)
                 else:
@@ -125,7 +126,7 @@ async def file_upload_handler(request: Request, files: List[UploadFile]):
                 upload_results.append({
                     "success": True,
                     "message": "Upload accepted",
-                    "originalFileName": "ABCD",
+                    "originalFileName": file.filename,
                     "uploadId": unique_table_id,
                     "tableName": table_name,
                     "status": "pending"
@@ -137,7 +138,7 @@ async def file_upload_handler(request: Request, files: List[UploadFile]):
                     "success": False,
                     "message": "Failed to process file",
                     "error": str(error),
-                    "fileName": "ABCD",
+                    "fileName": file.filename,
                     "status": "failed"
                 })
 

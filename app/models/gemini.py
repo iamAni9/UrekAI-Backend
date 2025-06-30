@@ -1,9 +1,10 @@
 from google import generativeai as genai
 from dotenv import load_dotenv
-from app.config.logger import logger
+from app.config.logger import get_logger
 from app.config.settings import settings
 
 load_dotenv()
+logger = get_logger("API Logger")
 
 API_KEY = settings.GOOGLE_API_KEY
 

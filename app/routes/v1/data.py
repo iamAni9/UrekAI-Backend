@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Request, File, UploadFile
 from app.controllers import data_controller
-from app.config.logger import logger
 from typing import List
+from app.config.logger import get_logger
 
-
+logger = get_logger("API Logger")
 router = APIRouter()
 
 @router.get("/")

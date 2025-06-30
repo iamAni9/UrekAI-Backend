@@ -1,10 +1,10 @@
-from app.config.logger import logger
+from app.config.logger import get_logger
 from datetime import datetime, timezone
 from typing import Dict, Any
 import asyncpg
 from fastapi import HTTPException, status
 
-async def remove_analysis(conn, userid, table_name):
+async def remove_analysis(conn, userid, table_name, logger):
     try:
         query = """
         DELETE FROM analysis_data 
@@ -16,7 +16,7 @@ async def remove_analysis(conn, userid, table_name):
         logger.error(f"Error occurred while removing the analysis for {userid}' and {table_name}': {e}")
         raise
     
-async def delete_temp_table(conn, table_name):
+async def delete_temp_table(conn, table_name, logger):
     try:
         query = f'DROP TABLE IF EXISTS "{table_name}" CASCADE'
         await conn.execute(query)
@@ -36,14 +36,14 @@ def sanitize_identifier(name: str) -> str:
     return "".join(char for char in name if char.isalnum() or char == '_')
 
 
-async def create_table_from_schema(conn, table_name: str, schema: Dict[str, Any]):
+async def create_table_from_schema(conn, table_name: str, schema: Dict[str, Any], logger):
     try:
-        # --- 1. Validate and Sanitize Inputs (More Robust Approach) ---
+        # --- 1. Validating and Sanitizing Inputs (More Robust Approach) ---
         safe_table_name = sanitize_identifier(table_name)
         if not schema or 'columns' not in schema or not schema['columns']:
             raise ValueError("Schema must be a dictionary with a non-empty 'columns' list.")
 
-        # --- 2. Build Column Definitions ---
+        # --- 2. Building Column Definitions ---
         column_definitions = []
         for col in schema['columns']:
             # Ensure each column dict has the required keys
@@ -56,7 +56,7 @@ async def create_table_from_schema(conn, table_name: str, schema: Dict[str, Any]
             # column_definitions.append(f'"{safe_col_name}" {data_type}')
             column_definitions.append(f'"{safe_col_name}" TEXT')
 
-        # --- 3. Construct the Full SQL Query ---
+        # --- 3. Constructing the Full SQL Query ---
         columns_sql = ",\n  ".join(column_definitions)
         create_table_query = f"""
             CREATE TABLE IF NOT EXISTS "{safe_table_name}" (
@@ -66,7 +66,7 @@ async def create_table_from_schema(conn, table_name: str, schema: Dict[str, Any]
         
         logger.debug(f"Executing query: \n{create_table_query}")
 
-        # --- 4. Execute the Query ---
+        # --- 4. Executing the Query ---
         
         await conn.execute(create_table_query)
         
@@ -88,27 +88,7 @@ async def create_table_from_schema(conn, table_name: str, schema: Dict[str, Any]
             detail=f"Database error while creating table: {e}"
         )
         
-async def insert_analysis_data(conn, id, table_name: str, original_file_name: str, schema, column_insight):
-    # query = """
-    #     INSERT INTO analysis_data (id, table_name, file_name, schema, column_insights, created_at)
-    #     VALUES (:id, :table_name, :file_name, :schema, :column_insights, :created_at)
-    # """
-
-    # values = {
-    #     "id": id,
-    #     "table_name": table_name,
-    #     "file_name": original_file_name,
-    #     "schema": schema,
-    #     "column_insights": column_insight,
-    #     "created_at": datetime.now(timezone.utc)
-    # }
-
-    # try:
-    #     await conn.execute(query=query, values=values)
-    #     logger.info("Successfully inserted analysis data into the database.")
-    # except Exception as e:
-    #     logger.error(f"Failed to insert analysis data: {e}")
-    #     raise 
+async def insert_analysis_data(conn, id, table_name: str, original_file_name: str, schema, column_insight, logger):
     query = """
     INSERT INTO analysis_data (id, table_name, file_name, schema, column_insights, created_at)
     VALUES ($1, $2, $3, $4, $5, $6)

@@ -1,36 +1,12 @@
 from fastapi import HTTPException
-from pydantic import BaseModel
 from typing import Dict, List
-from app.config.logger import logger
 from app.config.prompts import SCHEMA_GENERATION
 from app.models.gemini import query_ai
 import re, json
 from app.config.constants import SCHEMA_BATCH_SIZE
-from app.utils.uniqueId import generate_unique_id
 from app.utils.db_utils import insert_analysis_data
 import csv
 from io import StringIO
-
-class SchemaColumn(BaseModel):
-    column_name: str
-    data_type: str
-    is_nullable: str
-
-class ColumnInsight(BaseModel):
-    patterns: List[str]
-    anomalies: List[str]
-    business_significance: str
-
-class SchemaFormat(BaseModel):
-    schema: Dict[str, List[SchemaColumn]]
-    contain_columns: Dict[str, str]
-    column_insights: Dict[str, ColumnInsight]
-
-class SchemaRequest(BaseModel):
-    user_id: str
-    table_name: str
-    file_name: str
-    sample_rows: Dict[str, str]
     
 def get_row_length(row):
     return len(next(csv.reader(StringIO(row), skipinitialspace=True)))
@@ -65,7 +41,7 @@ def split_sample_rows_by_column_batch(sample_rows: Dict[str, str], batch_size: i
         batches.append(batch)
     return batches, max_columns
 
-async def get_schema(table_name: str, sample_rows: List[str], column_no: int) -> Dict:
+async def get_schema(table_name: str, sample_rows: List[str], column_no: int, logger) -> Dict:
     logger.info(f"Analyzing schema for table: {table_name}")
 
     user_query = f"""
@@ -105,7 +81,7 @@ async def get_schema(table_name: str, sample_rows: List[str], column_no: int) ->
         logger.error("Error parsing AI response", exc_info=True)
         raise
 
-async def generate_table_schema(conn, userid, table_name, original_file_name, sample_rows):
+async def generate_table_schema(conn, userid, table_name, original_file_name, sample_rows, logger):
     try:
         logger.info(f"Starting schema generation for table {table_name}")
         column_batches, max_length = split_sample_rows_by_column_batch(sample_rows, SCHEMA_BATCH_SIZE)
@@ -121,7 +97,7 @@ async def generate_table_schema(conn, userid, table_name, original_file_name, sa
             logger.info(f"Row1: {batch.get('row01')}")
             logger.info(f"Column Count: {col_count}")
             
-            schema = await get_schema(table_name, list(batch.values()), col_count)
+            schema = await get_schema(table_name, list(batch.values()), col_count, logger)
             schemas.append(schema)
 
         logger.info(f"Schema: {schemas}")
@@ -143,7 +119,8 @@ async def generate_table_schema(conn, userid, table_name, original_file_name, sa
             table_name, 
             original_file_name, 
             json.dumps(merged_schema["schema"]), 
-            json.dumps(merged_schema["column_insights"]), 
+            json.dumps(merged_schema["column_insights"]),
+            logger 
         )
         
         return {

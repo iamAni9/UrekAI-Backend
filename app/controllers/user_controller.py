@@ -5,8 +5,10 @@ from datetime import datetime, timezone
 import bcrypt
 import httpx
 from app.config.postgres import database as db
-from app.config.logger import logger
+from app.config.logger import get_logger
 from app.utils.uniqueId import generate_unique_id
+
+logger = get_logger("API Logger")
 
 async def sign_in_user(request: Request, response: Response):
     data = await request.json()
