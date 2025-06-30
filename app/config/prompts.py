@@ -93,7 +93,7 @@ QUERY_CLASSIFICATION_PROMPT = {
 
         Return a JSON object strictly in the following format:
         {
-            "type": "general" | "data_query_text" | "data_query_chart" | "data_query_combined"
+            "type": "general" | "data_query_text" | "data_query_chart" | "data_query_combined",
             "message": "Brief explanation of why this classification was chosen. If the type is 'general', provide the full response to the user here. If the type is 'unsupported', then provide alternate questions to the user based on the data files."  
         }
 
