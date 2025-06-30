@@ -84,22 +84,22 @@ QUERY_CLASSIFICATION_PROMPT = {
         Analyze the user's intent and classify queries into 3 categories based on following criterias:
 
         1. general                → Small talk, greetings, what-can-you-do
-        2. clarification_needed  → Query is unclear, vague, or requires more detail
-        3. data_query_text       → Structured question; textual analysis is enough
-        4. data_query_chart      → Structured question; visualization is needed or beneficial
-        5. data_query_combined   → Requires both tabular & chart-based output for full context
-        6. unsupported           → Outside domain of data analysis (e.g., "What's your favourite colour?")
+        2. data_query_text       → Structured question; textual analysis is enough
+        3. data_query_chart      → Structured question; visualization is needed or beneficial
+        4. data_query_combined   → Requires both tabular & chart-based output for full context
+        5. unsupported           ? Outside the domain of data analysis (e.g., "What's your favourite colour?" or a query about a column that doesn't exist in any of the data file provided)
+        
 
 
         Return a JSON object strictly in the following format:
         {
-            "type": "general" | "data_no_chart" | "data_with_chart",
-            "message": "Brief explanation of why this classification was chosen. If type is 'general', provide the full response to the user here."
+            "type": "general" | "data_query_text" | "data_query_chart" | "data_query_combined"
+            "message": "Brief explanation of why this classification was chosen. If the type is 'general', provide the full response to the user here. If the type is 'unsupported', then provide alternate questions to the user based on the data files."  
         }
 
         Ensure:
         - Only one type is selected.
-        - The message is always meaningful.
+        - The message is always meaningful, relevant and useful to the user.
         - Do not return anything other than the JSON.
         '''
 }
