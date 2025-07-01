@@ -17,7 +17,7 @@ async def get_sample_rows(file_path: str, sample_size: int) -> Dict[str, str]:
 
     try:
         def read_excel_sample():
-            df = pd.read_excel(file_path, nrows=sample_size, engine='openpyxl')
+            df = pd.read_excel(file_path, nrows=sample_size, engine='calamine')
             df.fillna('NULL', inplace=True)
             return df
 
@@ -53,14 +53,22 @@ async def add_data_into_table_from_excel(conn, file_path, table_name, schema: Di
     max_retries = 3
     for attempt in range(max_retries):
         try:
-            with open(temp_csv_path, "r", encoding='utf-8') as f:
+            with open(temp_csv_path, "rb") as f:
                 await conn.copy_to_table(
-                    table_name=table_name,
+                    table_name,
                     source=f,
                     format='csv',
                     header=(contain_column.upper() == "YES"),
-                    null='' 
+                    null=''
                 )
+            # with open(temp_csv_path, "r", encoding='utf-8') as f:
+            #     await conn.copy_to_table(
+            #         table_name=table_name,
+            #         source=f,
+            #         format='csv',
+            #         header=(contain_column.upper() == "YES"),
+            #         null='' 
+            #     )
 
             logger.info(f"Successfully loaded data from '{file_path}' into '{table_name}'.")
             os.remove(temp_csv_path)
@@ -79,7 +87,7 @@ async def add_data_into_table_from_excel(conn, file_path, table_name, schema: Di
     )
     
 def _blocking_excel_to_csv(input_path: str, output_path: str, header: bool):
-    df = pd.read_excel(input_path)
+    df = pd.read_excel(input_path, engine='calamine')
     df.to_csv(output_path, index=False, header=header, encoding='utf-8')
 
 

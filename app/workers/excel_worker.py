@@ -94,7 +94,7 @@ async def handle_job(job, conn):
 
             # Cleanup if partially created
             if table_created:
-                await delete_temp_table(conn, table_name)
+                await delete_temp_table(conn, table_name, logger)
 
         # Deleting file received
         os.remove(file_path)

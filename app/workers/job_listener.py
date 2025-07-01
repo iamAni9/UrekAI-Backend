@@ -3,7 +3,7 @@ import asyncio
 from app.config.settings import settings
 from app.config.logger import get_logger
 from app.config.constants import NO_OF_CSV_WORKER_TASKS, CONCURRENCY_LIMIT_FOR_CSV_WORKER_TAKS, CSV_NOTIFY_CHANNEL, EXCEL_NOTIFY_CHANNEL
-from .csv_worker_new import csv_processing
+from .csv_worker import csv_processing
 from .excel_worker import excel_processing
 
 logger = get_logger("Job Listener")
