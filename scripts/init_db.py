@@ -65,6 +65,25 @@ try:
                 ON csv_queue (status, upload_id, progress);
         """)
         print(" - Table 'csv_queue' checked/created.")
+        
+        cursor.execute("""
+            CREATE UNLOGGED TABLE IF NOT EXISTS excel_queue (
+                id SERIAL PRIMARY KEY,
+                upload_id UUID UNIQUE NOT NULL,
+                user_id TEXT NOT NULL,
+                email TEXT NOT NULL,
+                table_name TEXT NOT NULL,
+                file_path TEXT NOT NULL,
+                original_file_name TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'pending',
+                progress SMALLINT NOT NULL DEFAULT 0,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_excel_queue_status_upload_id_progress
+                ON excel_queue (status, upload_id, progress)
+                    """)
+        print(" - Table 'excel_queue' checked/created.")
 
         conn.commit()
         print("✅ Database initialization complete. Tables are ready.")
