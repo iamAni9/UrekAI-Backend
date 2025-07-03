@@ -86,21 +86,18 @@ QUERY_CLASSIFICATION_PROMPT = {
         1. general                → Small talk, greetings, what-can-you-do
         2. data_query_text       → Structured question; textual analysis is enough
         3. data_query_chart      → Structured question; visualization is needed or beneficial
-        4. data_query_combined   → Requires both tabular & chart-based output for full context
-        5. unsupported           ? Outside the domain of data analysis (e.g., "What's your favourite colour?" or a query about a column that doesn't exist in any of the data file provided)
-        
+        4. data_query_combined   → Requires both tabular & chart-based output for full context     
 
 
         Return a JSON object strictly in the following format:
         {
-            "type": "general" | "data_query_text" | "data_query_chart" | "data_query_combined" | "unsupported",
+            "type": "general" | "data_query_text" | "data_query_chart" | "data_query_combined" ,
               "message": "A clear and helpful message for the analysis model. This should explain why the query was classified this way and guide the next step:
               
               - For 'data_query_text': Describe that textual/tabular output is sufficient and what the focus should be (e.g., KPIs, patterns, summary stats).
               - For 'data_query_chart': Explain that visual trends or comparisons are needed and suggest possible chart types or data relationships.
               - For 'data_query_combined': Indicate that both the textual summary and the chart-based visual context are essential to fully answer the query.
-              - For 'general': Provide a natural language response to the user (e.g., greeting, capability explanation).
-              - For 'unsupported': Inform the user that the query is out of scope and suggest 2–3 valid example queries based on current data columns."  
+              - For 'general': Provide a natural language response to the user (e.g., greeting, capability explanation)."  
         }
 
         Ensure:
@@ -140,10 +137,22 @@ SQL_GENERATION_PROMPT = {
                 "explanation": "<Brief explanation of what this query answers>"
             }
         ]
+        If the user's question references a column or concept that is not present in any table from the provided schema, you must stop and return an error response like the following:
+
+        {
+          "error": true,
+          "unsupported_reason": "<explanation of what column or term was not found>",
+          "suggestions": [
+            "Try asking about '<existing_column_1>' or '<existing_column_2>' or '<another_valid_concept>' instead.",
+            "Use columns from the schema: column_1, column_2, ..."
+          ]
+        }
+        
+        Never attempt to synthesise columns from data. Your job is to protect correctness.
         ''',
     
     "userPrompt": '''
-        You are provided with structured metadata for one or more PostgreSQL tables. Your task is to analyze the user's question and generate 4 insightful queries.
+        You are provided with structured metadata for one or more PostgreSQL tables. Your task is to analyse the user's question and generate 4 insightful queries.
 
         Step-by-step:
 
