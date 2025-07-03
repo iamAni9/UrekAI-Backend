@@ -93,8 +93,14 @@ QUERY_CLASSIFICATION_PROMPT = {
 
         Return a JSON object strictly in the following format:
         {
-            "type": "general" | "data_query_text" | "data_query_chart" | "data_query_combined",
-            "message": "Brief explanation of why this classification was chosen. If the type is 'general', provide the full response to the user here. If the type is 'unsupported', then provide alternate questions to the user based on the data files."  
+            "type": "general" | "data_query_text" | "data_query_chart" | "data_query_combined" | "unsupported",
+              "message": "A clear and helpful message for the analysis model. This should explain why the query was classified this way and guide the next step:
+              
+              - For 'data_query_text': Describe that textual/tabular output is sufficient and what the focus should be (e.g., KPIs, patterns, summary stats).
+              - For 'data_query_chart': Explain that visual trends or comparisons are needed and suggest possible chart types or data relationships.
+              - For 'data_query_combined': Indicate that both the textual summary and the chart-based visual context are essential to fully answer the query.
+              - For 'general': Provide a natural language response to the user (e.g., greeting, capability explanation).
+              - For 'unsupported': Inform the user that the query is out of scope and suggest 2–3 valid example queries based on current data columns."  
         }
 
         Ensure:
