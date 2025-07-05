@@ -295,7 +295,8 @@ def parse_generated_queries(generated_queries_raw: Any) -> Optional[List[Dict[st
         
         queries = json.loads(cleaned)
         
-        if queries.get("error"):
+        if isinstance(queries, dict) and queries.get("error"):
+            print("Unsupported")
             return queries
         
         logger.info(f"Cleaned SQL queries: {queries}")
@@ -415,7 +416,7 @@ async def response_user_query(request: Request, response: Response) -> JSONRespo
                 logger.warning('Failed to parse generated queries')
                 continue
             
-            if parsed_queries.get("error"):
+            if isinstance(parsed_queries, dict) and parsed_queries.get("error"):
                 logger.error("Unsupported query based on data available in uploaded files.")
                 logger.info(parsed_queries)
                 return JSONResponse(
@@ -430,7 +431,7 @@ async def response_user_query(request: Request, response: Response) -> JSONRespo
                     }
                 )
                 
-            logger.info(f"Generated queries: {generated_queries_raw}")
+            logger.info(f"Generated queries: {parsed_queries}")
             
             query_results = await execute_parsed_queries(parsed_queries)
             logger.info("Query executed successfully")
@@ -486,7 +487,7 @@ async def response_user_query(request: Request, response: Response) -> JSONRespo
         raise
     except Exception as error:
         logger.error(f"Error in response_user_query: {error}")
-        raise HTTPException(
+        return JSONResponse(
             status_code=500,
-            detail=f"Error processing your query: {str(error)}"
+            content={"success": False, "data": "An error occured while generating analysis. Try again."}
         )

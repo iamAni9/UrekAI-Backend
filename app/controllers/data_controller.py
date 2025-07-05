@@ -176,9 +176,13 @@ async def upload_status_check(request: Request):
         
         user_id = user.get("id")
         
-        data = await request.json()
-        queue_name = data.get("queue_name")
-        upload_id = data.get("upload_id")
+        upload_id = request.query_params.get("upload_id")
+        file_type = request.query_params.get("extension")
+        print(f"Upload ID = {upload_id}, File type = {file_type}")
+        if file_type == 'csv':
+            queue_name = "csv_queue"
+        else:
+            queue_name = "excel_queue"
         
         info = await check_upload_status(queue_name, user_id, upload_id)
         if info:
