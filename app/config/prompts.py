@@ -140,7 +140,7 @@ SQL_GENERATION_PROMPT = {
         If the user's question references a column or concept that is not present in any table from the provided schema, you must stop and return an error response like the following:
 
         {
-          "error": true,
+          "error": True,
           "unsupported_reason": "<explanation of what column or term was not found>",
           "suggestions": [
             "Try asking about '<existing_column_1>' or '<existing_column_2>' or '<another_valid_concept>' instead.",

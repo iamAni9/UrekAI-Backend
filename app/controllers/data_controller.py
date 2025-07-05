@@ -1,10 +1,9 @@
-from fastapi import UploadFile,  Request, status
+from fastapi import UploadFile,  Request, status, HTTPException
 from fastapi.responses import JSONResponse
 from typing import List
 from pathlib import Path
 from app.config.logger import get_logger
 from app.config.postgres import database as db
-import uuid
 from app.utils.uniqueId import generate_unique_id, str_to_uuid
 
 logger = get_logger("API Logger")
@@ -16,9 +15,21 @@ async def check_user_exists(userid, email):
     except Exception as error:
         logger.error(f"Error while checking user in db: {error}")
         raise
-    
-def generate_table_id():
-    return uuid.uuid4().hex  # 32-character hex string
+
+async def check_upload_status(queue_name, user_id, upload_id):
+    try:
+        result = await db.fetch_one(
+                    f"""
+                    SELECT progress, status
+                    FROM {queue_name}
+                    WHERE upload_id = :upload_id AND user_id = :user_id
+                    """,
+                    values={"upload_id": upload_id, "user_id": user_id}
+                )   
+        return result;         
+    except Exception as error:
+        logger.error(f"Error while checking status for upload_id: {upload_id}", error)
+        raise
 
 async def update_job_queue(job_data, queue_name, channel_name, payload):
     try:
@@ -40,7 +51,7 @@ async def update_job_queue(job_data, queue_name, channel_name, payload):
             await db.execute(f"NOTIFY {channel_name}, '{payload}';")
         logger.info(f"Successfully added job {job_data['uploadId']} and sent notification.")
     except Exception as error:
-        logger.error(f"Error inserting into CSV queue: {error}")
+        logger.error(f"Error inserting into {queue_name}: {error}")
         raise
 
 async def file_upload_handler(request: Request, files: List[UploadFile]):
@@ -93,6 +104,7 @@ async def file_upload_handler(request: Request, files: List[UploadFile]):
                 ext = Path(file.filename).suffix.lower()
                 unique_table_id = generate_unique_id()
                 table_name = f"table_{unique_table_id}"
+                queue_name = ''
 
                 # Save the file temporarily
                 temp_dir = Path("/tmp/uploads")
@@ -112,12 +124,14 @@ async def file_upload_handler(request: Request, files: List[UploadFile]):
                     "originalFileName": file.filename
                 }
 
-                logger.info("Processing file", extra={"file": "ABCD", "tableName": table_name})
+                logger.info("Processing file", extra={"file": file.filename, "tableName": table_name})
 
                 if ext == ".csv":
-                    await update_job_queue(job_data, "csv_queue", "csv_job", "csv")
+                    queue_name = "csv_queue"
+                    await update_job_queue(job_data, queue_name, "csv_job", "csv")
                 elif ext in [".xlsx", ".xls"]:
-                    await update_job_queue(job_data, "excel_queue", "excel_job", "excel")
+                    queue_name = "excel_queue"
+                    await update_job_queue(job_data, queue_name, "excel_job", "excel")
                 # elif ext == ".json":
                 #     await json_queue.enqueue(job_data)
                 else:
@@ -128,8 +142,7 @@ async def file_upload_handler(request: Request, files: List[UploadFile]):
                     "message": "Upload accepted",
                     "originalFileName": file.filename,
                     "uploadId": unique_table_id,
-                    "tableName": table_name,
-                    "status": "pending"
+                    "queue_name": queue_name
                 })
 
             except Exception as error:
@@ -149,9 +162,38 @@ async def file_upload_handler(request: Request, files: List[UploadFile]):
         }
 
     except Exception as error:
-        logger.exception("Unhandled error in upload handler")
+        logger.exception(f"Unhandled error in upload handler: {error}")
         return JSONResponse(
             status_code=500,
             content={"success": False, "message": "Server error"}
         )
-    
+
+async def upload_status_check(request: Request):
+    try:
+        user = request.session.get("user")
+        if not user:
+            raise HTTPException(status_code=401, detail="Unauthorized")
+        
+        user_id = user.get("id")
+        
+        data = await request.json()
+        queue_name = data.get("queue_name")
+        upload_id = data.get("upload_id")
+        
+        info = await check_upload_status(queue_name, user_id, upload_id)
+        if info:
+            return {
+                "success": True,
+                "message": info
+            }
+        else:
+            return {
+                "success": False,
+                "message": "Job not found."
+            }
+    except Exception as error:
+        logger.exception(f"Error while checking upload status: {error}")
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "message": "Unexpected error while checking upload status"}
+        )

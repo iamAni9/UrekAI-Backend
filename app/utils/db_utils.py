@@ -20,9 +20,22 @@ async def delete_temp_table(conn, table_name, logger):
     try:
         query = f'DROP TABLE IF EXISTS "{table_name}" CASCADE'
         await conn.execute(query)
-        logger.info(f"✅ Table '{table_name}' deleted successfully.")
+        logger.info(f"Table '{table_name}' deleted successfully.")
     except Exception as e:
         logger.error(f"Error occurred while deleting table '{table_name}': {e}")
+        raise
+    
+async def update_upload_progress_in_queue(conn, queue_name, logger, upload_id, progress, status='processing'):
+    try:
+        query = f"""
+                UPDATE {queue_name}
+                SET status = $1, progress = $2
+                WHERE upload_id = $3
+                """
+        await conn.execute(query, status, progress, upload_id)
+        logger.info(f"{queue_name} updated")
+    except Exception as e:
+        logger.error(f"Error occurred while updating {queue_name}: {e}")
         raise
 
 # --- Helper function to sanitize SQL identifiers ---

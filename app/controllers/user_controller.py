@@ -16,13 +16,11 @@ async def sign_in_user(request: Request, response: Response):
     password = data.get("password")
 
     if not email or not password:
-        logger.error("Email and password are required")
         raise HTTPException(status_code=400, detail="Email and password are required")
 
     user = await db.fetch_one("SELECT * FROM users WHERE email = :email", {"email": email})
 
     if not user or not bcrypt.checkpw(password.encode(), user["password"].encode()):
-        logger.error("Invalid credentials")
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
     response = JSONResponse({"success": True, "message": "User login successfully"})
@@ -36,13 +34,16 @@ async def sign_in_user(request: Request, response: Response):
 
 async def sign_up_user(request: Request, response: Response):
     data = await request.json()
+    if not data:
+        raise HTTPException(status_code=400, detail="Request body is empty")
+    
     name = data.get("name")
     email = data.get("email")
     password = data.get("password")
-
+    
     if not name or not email or not password:
         raise HTTPException(status_code=400, detail="Name, email, and password are required")
-
+   
     existing_user = await db.fetch_one("SELECT * FROM users WHERE email = :email", {"email": email})
 
     if existing_user:

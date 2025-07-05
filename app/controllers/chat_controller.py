@@ -293,10 +293,13 @@ def parse_generated_queries(generated_queries_raw: Any) -> Optional[List[Dict[st
                   .replace('\n', '')
                   .strip())
         
-        queries_with_charts = json.loads(cleaned)
-        logger.info(f"Cleaned SQL queries: {queries_with_charts}")
+        queries = json.loads(cleaned)
         
-        for q in queries_with_charts:
+        if queries.get("error"):
+            return queries
+        
+        logger.info(f"Cleaned SQL queries: {queries}")
+        for q in queries:
             if not q.get('query'):
                 raise ValueError('Invalid query format')
             
@@ -313,7 +316,7 @@ def parse_generated_queries(generated_queries_raw: Any) -> Optional[List[Dict[st
             if 'where' in query_lower and 'id' in query_lower:
                 q['query'] = q['query'].rstrip(';') + ' OR 1=0'
         
-        return queries_with_charts
+        return queries
     except (json.JSONDecodeError, ValueError) as e:
         logger.error(f'Failed to parse or validate LLM multi-query response: {generated_queries_raw}')
         return None
@@ -405,13 +408,29 @@ async def response_user_query(request: Request, response: Response) -> JSONRespo
             
             generated_queries_raw = await generate_sql_queries(
                 user_query, classification.type, structured_metadata, llm_suggestions
-            )
-            logger.info(f"Generated queries: {generated_queries_raw}")
-            
+            )      
+                              
             parsed_queries = parse_generated_queries(generated_queries_raw)
             if not parsed_queries:
                 logger.warning('Failed to parse generated queries')
                 continue
+            
+            if parsed_queries.get("error"):
+                logger.error("Unsupported query based on data available in uploaded files.")
+                logger.info(parsed_queries)
+                return JSONResponse(
+                    status_code=200,
+                    content={
+                        "success": True,
+                        "data": {
+                            "type": "Unsupported",
+                            "reason": parsed_queries['unsupported_reason'],
+                            "suggestions": parsed_queries['suggestions']
+                        }
+                    }
+                )
+                
+            logger.info(f"Generated queries: {generated_queries_raw}")
             
             query_results = await execute_parsed_queries(parsed_queries)
             logger.info("Query executed successfully")
