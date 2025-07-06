@@ -81,7 +81,7 @@ async def listen_and_process():
 
 if __name__ == "__main__":
     try:
-        logger.info("Starting CSV Worker")
+        logger.info("Starting Workers")
         asyncio.run(listen_and_process())
     except KeyboardInterrupt:
-        logger.info("Worker interrupted (Ctrl+C)")
+        logger.info("Workers interrupted (Ctrl+C)")

@@ -34,8 +34,9 @@ def run_concurrently():
         ]
         worker_cmd = [
             sys.executable,
-            "-m",
-            "app.workers.job_listener"
+            # "-m",
+            # "app.workers.job_listener"
+            "run_listener.py"
         ]
 
         print("...Starting API and Worker...\n")
@@ -53,11 +54,22 @@ def run_concurrently():
         worker_proc.wait()
 
     except KeyboardInterrupt:
-        print("\Shutting down processes...")
-        api_proc.send_signal(signal.CTRL_C_EVENT)
-        worker_proc.send_signal(signal.CTRL_C_EVENT)
-        api_proc.terminate()
-        worker_proc.terminate()
+        print("\nShutting down processes...")
+
+        if api_proc and api_proc.poll() is None:
+            api_proc.terminate()
+            try:
+                api_proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                api_proc.kill()
+
+        if worker_proc and worker_proc.poll() is None:
+            worker_proc.terminate()
+            try:
+                worker_proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                worker_proc.kill()
+
         print("Clean exit.")
 
 if __name__ == "__main__":
