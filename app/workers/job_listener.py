@@ -46,15 +46,28 @@ async def notification_listener(conn, queue):
 
 async def listen_and_process():
     try:
+        # Defining keepalive settings to prevent idle connection timeout
+        # listener_conn = await asyncpg.connect(
+        #     dsn=settings.DATABASE_URL,
+        #     keepalives_idle=60,      # Inactivity in seconds before sending a probe
+        #     keepalives_interval=10,  # Interval in seconds between probes
+        #     keepalives_count=5       # Failed probes before connection is considered dead
+        # )
+        listener_conn = await asyncpg.connect(
+            dsn=settings.DATABASE_URL,
+            server_settings={'tcp_keepalives_idle': '60'} 
+        )
+        logger.info("Dedicated listener connection established with keepalives.")
+        
         pool = await asyncpg.create_pool(dsn=settings.DATABASE_URL, min_size=5, max_size=10)
-        logger.info("Database connection established.")
+        logger.info("Workers database connection pool established.")
 
         # Creating a bounded queue for all the incoming jobs
         queue = asyncio.Queue(maxsize=100)  # Avoid unbounded memory use
 
         # Starting listener
-        conn = await pool.acquire()
-        await notification_listener(conn, queue)
+        # conn = await pool.acquire()
+        await notification_listener(listener_conn, queue)
 
         # Start worker pool
         workers = [
@@ -70,11 +83,16 @@ async def listen_and_process():
     except Exception as e:
         logger.error(f"Encountered error: {e}")
     finally:
-        if 'conn' in locals() and not conn.is_closed():
-            await conn.close()
+        # if 'conn' in locals() and not conn.is_closed():
+        #     await conn.close()
+        if 'listener_conn' in locals() and not listener_conn.is_closed():
+            await listener_conn.close()
+            logger.info("Listener connection closed.")
         if 'pool' in locals():
             await pool.close()
-            # await pool.wait_closed()
+            logger.info("Worker pool closed.")
+            
+        logger.info("Shutting down.")
             
         logger.info("Shutting down.")
 

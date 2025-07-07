@@ -56,6 +56,25 @@ async def update_job_queue(job_data, queue_name, channel_name, payload):
         logger.error(f"Error inserting into {queue_name}: {error}")
         raise
 
+async def remove_upload_data(userid, upload_id):
+    table_name = f"table_{upload_id}"
+    try:
+        async with db.transaction():
+            await db.execute(f'DROP TABLE IF EXISTS "{table_name}"')
+
+            await db.execute(
+                "DELETE FROM analysis_data WHERE id = :userid AND table_name = :table_name",
+                {"userid": userid, "table_name": table_name}
+            )
+        logger.info(f"Removed table data for userid: {userid} and upload_id: {upload_id} successfully")
+        return True
+    except Exception as error:
+        logger.error(
+            f"Error while removing table data for userid: {userid} and upload_id: {upload_id}: {error}"
+        )
+        raise
+    
+
 async def file_upload_handler(request: Request, files: List[UploadFile]):
     try:
         logger.info("File uploading starts")
@@ -177,7 +196,7 @@ async def file_upload_handler(request: Request, files: List[UploadFile]):
             content={"success": False, "message": "Server error"}
         )
 
-async def upload_status_check(request: Request):
+async def file_upload_status_check(request: Request):
     try:
         user = request.session.get("user")
         if not user:
@@ -187,7 +206,18 @@ async def upload_status_check(request: Request):
         
         upload_id = request.query_params.get("upload_id")
         file_type = request.query_params.get("extension")
-        print(f"Upload ID = {upload_id}, File type = {file_type}")
+        # print(f"Upload ID = {upload_id}, File type = {file_type}")
+        if not upload_id or not file_type:
+            logger.error("Missing required fields", extra={"upload_id": upload_id, "extension": file_type})
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content={
+                    "success": False,
+                    "message": "Provide upload_id and extension",
+                    "status": "Failed"
+                }
+            )
+        
         if file_type == 'csv':
             queue_name = "csv_queue"
         else:
@@ -209,4 +239,35 @@ async def upload_status_check(request: Request):
         return JSONResponse(
             status_code=500,
             content={"success": False, "message": "Unexpected error while checking upload status"}
+        )
+        
+async def file_upload_delete(request: Request):
+    try:
+        user = request.session.get("user")
+        if not user:
+            raise HTTPException(status_code=401, detail="Unauthorized")
+        
+        userid = str_to_uuid(user.get("id"))
+        
+        body = await request.json()
+        upload_id = body.get("uploadId")
+        
+        result = await remove_upload_data(userid, upload_id)
+        
+        if result:
+            return {
+                "success": True,
+                "message": "File removed successfully"
+            }
+        else:
+            return {
+                "success": False,
+                "message": "File not found."
+            }
+        
+    except Exception as error:
+        logger.exception(f"Error while removing data table: {error}")
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "message": "Unexpected error while deleting file data from db"}
         )

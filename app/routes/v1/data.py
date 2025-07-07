@@ -20,4 +20,8 @@ async def upload_file(request: Request, files: List[UploadFile] = File(...)):
 
 @router.get("/upload-status")
 async def check_upload_status(request: Request):
-    return await data_controller.upload_status_check(request)
+    return await data_controller.file_upload_status_check(request)
+
+@router.post("/upload-remove")
+async def upload_file(request: Request):
+    return await data_controller.file_upload_delete(request)

@@ -237,13 +237,16 @@ GENERATE_ANALYSIS_FOR_USER_QUERY_PROMPT = {
             "business_impact": ["Optional implications", "..."]
           },
           "table_data": {
-            "<file_name>": [
-              {"column1": "value", "column2": "value", ...},
-              ...
-            ]
+            "Custom table name": [
+              {"column1": "value", "column2": "value", ...}
+            ],
+            "Custom table name": [
+              {"column1": "value", "column2": "value", ...}
+            ],
+            ...
           },
           "graph_data": {
-            "graph_1": {
+            "graph_name": {
               "graph_type": "bar|line|pie|scatter",
               "graph_category": "primary|secondary",
               "graph_data": {
@@ -271,7 +274,7 @@ GENERATE_ANALYSIS_FOR_USER_QUERY_PROMPT = {
         - Use only relevant sections in the final JSON. Do NOT include empty arrays or irrelevant fields.
         
         Output requirements:
-        - Based on the intent of the query and find the insights, trends, recommendations and business impact based on the intent.   
+        - If query is too basic just answer with small summary like human otherwise based on the intent of the query and find the insights, trends, recommendations and business impact based on the intent.   
         - In "table_data", include actual result rows grouped by the file name.
         - In "graph_data", suggest UP TO (not necessarily)4 graphs. Mark one as `"primary"` if clearly most useful, and others as ‘secondary’.
         - Keep JSON brackets (`{}` and `[]`) strictly valid to allow machine parsing.
