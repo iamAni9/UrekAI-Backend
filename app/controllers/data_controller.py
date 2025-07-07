@@ -2,9 +2,11 @@ from fastapi import UploadFile,  Request, status, HTTPException
 from fastapi.responses import JSONResponse
 from typing import List
 from pathlib import Path
+# from app.config.settings import settings
 from app.config.logger import get_logger
 from app.config.postgres import database as db
 from app.utils.uniqueId import generate_unique_id, str_to_uuid
+# from app.utils.cloud_file_bucket import upload_to_supabase
 
 logger = get_logger("API Logger")
 
@@ -110,6 +112,13 @@ async def file_upload_handler(request: Request, files: List[UploadFile]):
                 temp_dir = Path("/tmp/uploads")
                 temp_dir.mkdir(parents=True, exist_ok=True)
                 file_path = temp_dir / file.filename
+                
+                # if settings.ENV == 'development':
+                #     temp_dir = Path("/tmp/uploads")
+                #     temp_dir.mkdir(parents=True, exist_ok=True)
+                #     file_path = temp_dir / file.filename
+                # else:
+                #     file_path = upload_to_supabase(file, userid)
 
                 with open(file_path, "wb") as f:
                     content = await file.read()

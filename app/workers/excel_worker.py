@@ -2,8 +2,10 @@ from app.config.logger import get_logger
 from app.config.constants import MAX_UPLOAD_RETRIES, SAMPLE_ROW_LIMIT
 from app.utils.db_utils import remove_analysis, delete_temp_table, create_table_from_schema, update_upload_progress_in_queue
 from app.utils.schema_generation import generate_table_schema
+# from app.utils.cloud_file_bucket import download_and_save_file
 from app.helper.excel_worker_helper import get_sample_rows, add_data_into_table_from_excel
 import os, math, asyncio
+# from app.config.settings import settings
 
 logger = get_logger("EXCEL Worker")
 
@@ -36,6 +38,8 @@ async def excel_processing(conn):
 async def handle_job(job, conn):
     try:
         file_path = job["file_path"]
+        # if settings.ENV != 'development':
+        #     file_path = await download_and_save_file(file_path)
         table_name = job["table_name"]
         userid = job["user_id"]
         email = job["email"]
