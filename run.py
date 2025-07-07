@@ -34,9 +34,9 @@ def run_concurrently():
         ]
         worker_cmd = [
             sys.executable,
-            # "-m",
+            "-m",
             # "app.workers.job_listener"
-            "run_listener.py"
+            "scripts.run_listener"
         ]
 
         print("...Starting API and Worker...\n")
