@@ -104,7 +104,7 @@ async def google_auth(request: Request):
         if not user:
             logger.info("Creating new user for Google login")
             user_id = generate_unique_id()
-            now = datetime.datetime.utcnow()
+            now = datetime.now(timezone.utc)
             await db.execute(
                 """
                 INSERT INTO users (id, name, email, password, created_at, updated_at)
