@@ -1,5 +1,5 @@
-from fastapi import APIRouter, Request, Response
-from app.controllers import chat_controller
+from fastapi import APIRouter, WebSocket
+from app.controllers import chat_controller_v2
 from app.config.logger import get_logger
 
 logger = get_logger("API Logger")
@@ -13,6 +13,6 @@ async def hello_chat():
         "message": "User can send chat."
         }
 
-@router.post("/query")
-async def query_analysis(request: Request, response: Response):
-    return await chat_controller.response_user_query(request, response)
+@router.websocket("/ws/query")
+async def query_analysis(websocket: WebSocket):
+    return await chat_controller_v2.websocket_endpoint(websocket)

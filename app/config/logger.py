@@ -4,6 +4,11 @@ import sys
 def get_logger(name: str):
     logger = logging.getLogger(name)
     logger.setLevel(logging.INFO)
+    
+    # 🚫 Suppress excessive WebSocket logs
+    logging.getLogger("websockets").setLevel(logging.WARNING)
+    logging.getLogger("uvicorn.protocols.websockets").setLevel(logging.WARNING)
+    logging.getLogger("uvicorn.error").setLevel(logging.INFO)  # Optional: reduce Uvicorn noise
 
     # Avoid adding duplicate handlers
     if not logger.hasHandlers():
