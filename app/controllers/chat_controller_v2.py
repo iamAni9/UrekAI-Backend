@@ -49,9 +49,10 @@ async def process_user_query(websocket: WebSocket, user_query: str, user_id: str
                 continue 
             
             if isinstance(parsed_queries, dict) and parsed_queries.get("error"):
-                await send_socket_message(websocket, 'unsupported', parsed_queries['suggestions'])
+                await send_socket_message(websocket, 'unsupported', f"Data is not sufficient. {parsed_queries['suggestions'][0]}")
                 logger.error("Unsupported query based on data available in uploaded files.")
                 logger.info(parsed_queries)
+                return
             
             logger.info(f"Generated queries: {parsed_queries}")
             await send_socket_message(websocket, 'thinking', parsed_queries[-1].get('user_message'))
