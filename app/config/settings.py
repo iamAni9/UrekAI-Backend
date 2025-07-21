@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     GOOGLE_API_KEY: str
     SUPABASE_URL: str = "NA"
     SUPABASE_SERVICE_ROLE_KEY: str = "NA"
-    BUCKET_NAME: str = "NA"
+    FIREBASE_CREDENTIALS_JSON: str
     # CELERY_BROKER_URL: str
     # CELERY_RESULT_BACKEND: str
     

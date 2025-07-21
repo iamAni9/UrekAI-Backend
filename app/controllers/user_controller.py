@@ -7,6 +7,7 @@ import httpx
 from app.config.postgres import database as db
 from app.config.logger import get_logger
 from app.utils.uniqueId import generate_unique_id
+from app.config.firebase import get_or_create_firebase_token
 
 logger = get_logger("API Logger")
 
@@ -135,12 +136,15 @@ async def check_user(request: Request):
     user = request.session.get("user")
     if not user:
         raise HTTPException(status_code=401, detail="Not logged in")
-
+    
+    firebase_token = await get_or_create_firebase_token(user["email"], user["name"])
+    
     return JSONResponse({
         "success": True,
         "message": "User already logged in",
         "name": user["name"],
-        "email": user["email"]
+        "email": user["email"],
+        "firebase_token": firebase_token,
     })
 
 
