@@ -1,13 +1,14 @@
 # controllers/user_controller.py
 from fastapi import Request, Response, HTTPException
 from fastapi.responses import JSONResponse
+from fastapi.concurrency import run_in_threadpool
 from datetime import datetime, timezone
 import bcrypt
 import httpx
 from app.config.postgres import database as db
 from app.config.logger import get_logger
 from app.utils.uniqueId import generate_unique_id
-from app.config.firebase import get_or_create_firebase_token
+from app.config.firebase import generate_firebase_custom_token
 
 logger = get_logger("API Logger")
 
@@ -137,7 +138,8 @@ async def check_user(request: Request):
     if not user:
         raise HTTPException(status_code=401, detail="Not logged in")
     
-    firebase_token = await get_or_create_firebase_token(user["email"], user["name"])
+    # firebase_token = await get_or_create_firebase_token(user["email"], user["name"])
+    firebase_token = await run_in_threadpool(generate_firebase_custom_token, user["email"])
     
     return JSONResponse({
         "success": True,

@@ -1,17 +1,27 @@
-import firebase_admin
-from firebase_admin import credentials, auth
-from app.config.settings import settings
+import time
 import json
+import jwt  # PyJWT
+from app.config.settings import settings
 
 firebase_credentials = json.loads(settings.FIREBASE_CREDENTIALS_JSON)
-cred = credentials.Certificate(firebase_credentials)
-firebase_admin.initialize_app(cred)
 
-async def get_or_create_firebase_token(email: str, display_name: str):
-    try:
-        user = auth.get_user_by_email(email)
-    except auth.UserNotFoundError:
-        user = auth.create_user(email=email, display_name=display_name)
+def generate_firebase_custom_token(uid: str, additional_claims: dict = None) -> str:
+    now = int(time.time())
 
-    custom_token = auth.create_custom_token(user.uid)
-    return custom_token.decode("utf-8")
+    payload = {
+        "iss": firebase_credentials["client_email"],
+        "sub": firebase_credentials["client_email"],
+        "aud": "https://identitytoolkit.googleapis.com/google.identity.identitytoolkit.v1.IdentityToolkit",
+        "iat": now,
+        "exp": now + 3600,  # 1 hour expiration
+        "uid": uid
+    }
+
+    if additional_claims:
+        payload["claims"] = additional_claims
+
+    private_key = firebase_credentials["private_key"]
+
+    token = jwt.encode(payload, private_key, algorithm="RS256")
+    
+    return token if isinstance(token, str) else token.decode("utf-8")
