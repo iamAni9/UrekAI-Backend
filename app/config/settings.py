@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     ENV: str = "development"
     ENV_PORT: int = 10000
     DATABASE_URL: str
+    DATABASE_URL_DIRECT: str
     GOOGLE_API_KEY: str
     SUPABASE_URL: str = "NA"
     SUPABASE_SERVICE_ROLE_KEY: str = "NA"

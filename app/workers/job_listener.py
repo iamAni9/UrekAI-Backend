@@ -78,7 +78,7 @@ async def notification_listener(conn, queue, activity_event: asyncio.Event):
 async def listen_and_process():
     try:
         listener_conn = await asyncpg.connect(
-            dsn=settings.DATABASE_URL,
+            dsn=settings.DATABASE_URL_DIRECT,
             # server_settings={'tcp_keepalives_idle': '60'} 
         )
         logger.info("Dedicated listener connection established with keepalives.")

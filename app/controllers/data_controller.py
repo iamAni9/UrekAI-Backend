@@ -85,7 +85,7 @@ async def file_upload_handler(request: Request, files: List[UploadFile]):
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 content={"success": False, "message": "Unauthorized"}
             )
-        userid = str_to_uuid(user.get("id"))
+        userid = user.get("id")
         email = user.get("email")
 
         if not isinstance(files, list):
@@ -106,7 +106,7 @@ async def file_upload_handler(request: Request, files: List[UploadFile]):
         # logger.info("TYPES:", [type(f) for f in files])
         
         
-        user_exists = await check_user_exists(userid, email)
+        user_exists = await check_user_exists(str_to_uuid(userid), email)
         if not user_exists:
             logger.error("User not found", extra={"email": email})
             return JSONResponse(
@@ -204,7 +204,7 @@ async def file_upload_status_check(request: Request):
         
         user_id = user.get("id")
         
-        upload_id = request.query_params.get("upload_id")
+        upload_id = str_to_uuid(request.query_params.get("upload_id"))
         file_type = request.query_params.get("extension")
         # print(f"Upload ID = {upload_id}, File type = {file_type}")
         if not upload_id or not file_type:
