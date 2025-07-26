@@ -76,6 +76,9 @@ async def notification_listener(conn, queue, activity_event: asyncio.Event):
 
             
 async def listen_and_process():
+    pinger_task = None
+    listener_conn = None
+    pool = None
     try:
         listener_conn = await asyncpg.connect(
             dsn=settings.DATABASE_URL_DIRECT,
@@ -118,14 +121,22 @@ async def listen_and_process():
         if pinger_task:
             pinger_task.cancel()
             logger.info("Pinger task cancelled.")
-        if 'listener_conn' in locals() and not listener_conn.is_closed():
-            await listener_conn.close()
-            logger.info("Listener connection closed.")
-        if 'pool' in locals():
-            await pool.close()
-            logger.info("Worker pool closed.")
-            
-        logger.info("Shutting down.")
+        if listener_conn:
+            try:
+                if 'listener_conn' in locals() and not listener_conn.is_closed():
+                    await listener_conn.close()
+                    logger.info("Listener connection closed.")
+            except Exception as e:
+                logger.warning(f"Error closing listener_conn: {e}")
+        if pool:
+            try:
+                if 'pool' in locals():
+                    await pool.close()
+                    logger.info("Worker pool closed.")
+            except Exception as e:
+                logger.warning(f"Error closing pool: {e}")
+    
+    logger.info("Shutting down.")
 
 if __name__ == "__main__":
     try:
