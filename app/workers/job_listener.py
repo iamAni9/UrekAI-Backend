@@ -82,6 +82,7 @@ async def listen_and_process():
     try:
         listener_conn = await asyncpg.connect(
             dsn=settings.DATABASE_URL_DIRECT,
+            statement_cache_size=0
             # server_settings={'tcp_keepalives_idle': '60'} 
         )
         logger.info("Dedicated listener connection established with keepalives.")
