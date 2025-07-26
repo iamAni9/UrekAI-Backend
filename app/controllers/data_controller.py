@@ -231,7 +231,7 @@ async def file_upload_status_check(request: Request):
             }
         else:
             return {
-                "success": False,
+                "success": True,
                 "message": "Job not found."
             }
     except Exception as error:
