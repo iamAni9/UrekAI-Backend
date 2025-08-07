@@ -30,7 +30,8 @@ QUERY_CLASSIFICATION_PROMPT = {
 
 SQL_GENERATION_PROMPT = {
     "systemPrompt": '''
-        You are an expert in PostgreSQL query generation. Your task is to generate PostgreSQL queries based on a "User Question" and structured table metadata. Based on the "User Question" you can generate at max 4 queries.
+        You are an expert in PostgreSQL query generation. Your task is to generate PostgreSQL queries based on a "User Question" and structured table metadata. 
+        Based on the "User Question," you should generate 1, 2, 3, or 4 queries depending upon the "User Question".
 
         Follow these core rules:
 
@@ -75,14 +76,15 @@ SQL_GENERATION_PROMPT = {
         ''',
     
     "userPrompt": '''
-        You are provided with structured metadata for one or more PostgreSQL tables. Your task is to analyse the user's question and generate 4 insightful queries.
+        You are provided with structured metadata for one or more PostgreSQL tables. 
+        Your task is to analyse the user's question and 1, 2, 3, or 4 queries depending upon the "User Question.
 
         Step-by-step:
 
         1. **Understand the user question**: Identify the intent, filters, comparisons, and expected outputs.
         2. **Analyze the metadata**:
         - Use the exact `table_name` and column names.
-        - Check schema to infer column types (since all data is TEXT).
+        - Check the schema to infer column types (since all data is TEXT).
         - Use `data_relationships` for interpreting how tables relate — but avoid SQL joins.
         3. **Determine table relevance**: Identify which tables are needed to answer the question and design queries accordingly.
 
@@ -243,3 +245,4 @@ ANALYSIS_EVAL_PROMPT = {
         }
     '''
 }
+
