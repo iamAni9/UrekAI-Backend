@@ -1,4 +1,4 @@
-from .constants import DATA_TIME_FORMAT
+from ..constants import DATA_TIME_FORMAT
 #-------------------------DATA UPLOAD SECTION------------------------#
 ### This is for generating the schema and useful information taking few sample rows from the uploaded file.
 ### The response from LLM will be use for 

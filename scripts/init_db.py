@@ -2,6 +2,9 @@ import os
 import time
 import psycopg2
 from psycopg2.extras import RealDictCursor
+# from dotenv import load_dotenv
+
+# load_dotenv()
 
 print("Starting database initialization script...")
 time.sleep(5) 
@@ -29,6 +32,19 @@ try:
             CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
         """)
         print("- Table 'users' checked/created.")
+        
+        cursor.execute("""
+           CREATE TABLE IF NOT EXISTS registered_number (
+                id UUID NOT NULL,
+                number TEXT NOT NULL,
+                
+                CONSTRAINT registered_number_pkey PRIMARY KEY (id, number),
+                CONSTRAINT fk_user_id FOREIGN KEY (id) REFERENCES users(id) ON DELETE CASCADE
+            );
+            
+            CREATE INDEX IF NOT EXISTS idx_registered_number_id ON registered_number(id);
+        """)
+        print("- Table 'registered_number' checked/created.")
 
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS analysis_data (
@@ -52,12 +68,13 @@ try:
                 id SERIAL PRIMARY KEY,
                 upload_id UUID UNIQUE NOT NULL,
                 user_id TEXT NOT NULL,
-                email TEXT NOT NULL,
                 table_name TEXT NOT NULL,
                 file_path TEXT NOT NULL,
                 original_file_name TEXT NOT NULL,
                 status TEXT NOT NULL DEFAULT 'pending',
                 progress SMALLINT NOT NULL DEFAULT 0,
+                medium TEXT NULL,
+                receiver_no TEXT NULL,
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             );
 
@@ -71,12 +88,13 @@ try:
                 id SERIAL PRIMARY KEY,
                 upload_id UUID UNIQUE NOT NULL,
                 user_id TEXT NOT NULL,
-                email TEXT NOT NULL,
                 table_name TEXT NOT NULL,
                 file_path TEXT NOT NULL,
                 original_file_name TEXT NOT NULL,
                 status TEXT NOT NULL DEFAULT 'pending',
                 progress SMALLINT NOT NULL DEFAULT 0,
+                medium TEXT NULL,
+                receiver_no TEXT NULL,
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             );
 

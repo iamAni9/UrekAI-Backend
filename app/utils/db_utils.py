@@ -1,8 +1,33 @@
-from app.config.logger import get_logger
 from datetime import datetime, timezone
 from typing import Dict, Any
 import asyncpg
 from fastapi import HTTPException, status
+from app.config.postgres import database as db
+
+async def update_job_queue(job_data, queue_name, channel_name, payload, logger):
+    try:
+        async with db.transaction():
+            await db.execute(f"""
+                INSERT INTO {queue_name} (
+                    upload_id, user_id, table_name, file_path, original_file_name, medium, receiver_no
+                ) VALUES (
+                    :upload_id, :user_id, :table_name, :file_path, :original_file_name, :medium, :receiver_no
+                )
+            """, values={
+                 "upload_id": job_data["uploadId"],
+                 "user_id": job_data["userid"],
+                #  "email": job_data["email"],
+                 "table_name": job_data["tableName"],
+                 "file_path": job_data["filePath"],
+                 "original_file_name": job_data["originalFileName"],
+                 "medium": job_data.get("medium"),          # Use get() in case the field is optional
+                 "receiver_no": job_data.get("receiver_no")
+            })
+            await db.execute(f"NOTIFY {channel_name}, '{payload}';")
+        logger.info(f"Successfully added job {job_data['uploadId']} and sent notification.")
+    except Exception as error:
+        logger.error(f"Error inserting into {queue_name}: {error}")
+        raise
 
 async def remove_analysis(conn, userid, table_name, logger):
     try:
@@ -14,6 +39,29 @@ async def remove_analysis(conn, userid, table_name, logger):
         logger.info(f"✅ Analysis for '{userid}' and {table_name}' removed successfully.")
     except Exception as e:
         logger.error(f"Error occurred while removing the analysis for {userid}' and {table_name}': {e}")
+        raise
+
+async def delete_multiple_tables(files, tables, logger):
+    try:
+        query = f'DROP TABLE IF EXISTS "{"".join(tables)}" CASCADE'
+        await db.execute(query)
+        logger.info(f"Table '{tables}' deleted successfully.")
+        
+        values_clause = ', '.join(f"('{t}', '{f}')" for t, f in zip(tables, files))
+
+        delete_query = f"""
+            DELETE FROM analysis_data a
+            WHERE EXISTS (
+                SELECT 1 FROM (VALUES {values_clause}) AS v(table_name, file_name)
+                WHERE a.table_name = v.table_name AND a.file_name = v.file_name
+            );
+        """
+
+        await db.execute(delete_query)
+        logger.info(f"Deleted rows from analysis_data for table/file pairs: {values_clause}")
+       
+    except Exception as e:
+        logger.error(f"Error occurred while deleting table '{tables}': {e}")
         raise
     
 async def delete_temp_table(conn, table_name, logger):
@@ -122,3 +170,22 @@ async def insert_analysis_data(conn, id, table_name: str, original_file_name: st
     except Exception as e:
         logger.error(f"Failed to insert analysis data: {e}")
         raise
+
+async def get_user_id_from_registered_no(number: str, logger):
+    try:
+        query = "SELECT id FROM registered_number WHERE number = :number"
+        user_id = await db.fetch_val(query, {"number": number})
+        return user_id
+    except Exception as e:
+        logger.error(f"Failed to retrieve user_id using number: {e}")
+        return None
+    
+# async def get_registered_no_from_user_id(user_id: str, conn, logger):
+#     try:
+#         query = "SELECT number FROM registered_number WHERE id = $1"
+#         result = await conn.execute(query, user_id)
+#         number = result.scalar_one_or_none()  # returns the value or None
+#         return number
+#     except Exception as e:
+#         logger.error(f"Failed to retrieve number using user_id: {e}")
+#         raise

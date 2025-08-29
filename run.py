@@ -32,26 +32,26 @@ def run_concurrently():
             "--log-level", "debug",
             "--port", port
         ]
-        worker_cmd = [
-            sys.executable,
-            "-m",
-            # "app.workers.job_listener"
-            "scripts.run_listener"
-        ]
+        # worker_cmd = [
+        #     sys.executable,
+        #     "-m",
+        #     # "app.workers.job_listener"
+        #     "scripts.run_listener"
+        # ]
 
         print("...Starting API and Worker...\n")
 
         # Starting processes
         api_proc = subprocess.Popen(api_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        worker_proc = subprocess.Popen(worker_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        # worker_proc = subprocess.Popen(worker_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
         # Starting threaded output streaming
         threading.Thread(target=stream_output, args=(api_proc, "api", COLORS["api"]), daemon=True).start()
-        threading.Thread(target=stream_output, args=(worker_proc, "Worker", COLORS["worker"]), daemon=True).start()
+        # threading.Thread(target=stream_output, args=(worker_proc, "Worker", COLORS["worker"]), daemon=True).start()
 
         # Waiting for both processes
         api_proc.wait()
-        worker_proc.wait()
+        # worker_proc.wait()
 
     except KeyboardInterrupt:
         print("\nShutting down processes...")
@@ -63,12 +63,12 @@ def run_concurrently():
             except subprocess.TimeoutExpired:
                 api_proc.kill()
 
-        if worker_proc and worker_proc.poll() is None:
-            worker_proc.terminate()
-            try:
-                worker_proc.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                worker_proc.kill()
+        # if worker_proc and worker_proc.poll() is None:
+        #     worker_proc.terminate()
+        #     try:
+        #         worker_proc.wait(timeout=5)
+        #     except subprocess.TimeoutExpired:
+        #         worker_proc.kill()
 
         print("Clean exit.")
 

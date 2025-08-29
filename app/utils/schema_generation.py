@@ -1,7 +1,7 @@
 from fastapi import HTTPException
 from typing import Dict, List
-from app.config.prompts import SCHEMA_GENERATION
-from app.models.gemini import query_ai
+from app.config.prompts.prompts import SCHEMA_GENERATION
+from app.ai.gemini import query_ai
 import re, json
 from app.config.constants import SCHEMA_BATCH_SIZE
 from app.utils.db_utils import insert_analysis_data

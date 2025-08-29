@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 
 from app.config.logger import get_logger
 from app.config.postgres import database as db
-from app.models.gemini import query_ai
+from app.ai.gemini import query_ai
 from app.utils.uniqueId import str_to_uuid
 from app.config.constants import MAX_RETRY_ATTEMPTS, MAX_EVAL_ITERATION, INITIAL_RETRY_DELAY
 
@@ -84,7 +84,7 @@ def clean_json_string(json_str: str) -> str:
 
 async def classify_query(user_query: str) -> QueryClassification:
     """Classify user query"""
-    from app.config.prompts import QUERY_CLASSIFICATION_PROMPT
+    from app.config.prompts.prompts import QUERY_CLASSIFICATION_PROMPT
     
     system_prompt = QUERY_CLASSIFICATION_PROMPT["systemPrompt"]
     user_prompt = f'Classify this query: "{user_query}"'
@@ -123,7 +123,7 @@ async def generate_sql_queries(
     llm_suggestions: Any
 ) -> str:
     """Generate SQL queries"""
-    from app.config.prompts import SQL_GENERATION_PROMPT
+    from app.config.prompts.prompts import SQL_GENERATION_PROMPT
     
     system_prompt = SQL_GENERATION_PROMPT["systemPrompt"]
     user_prompt = f"""
@@ -149,7 +149,7 @@ async def generate_sql_queries(
 
 async def generate_analysis(query_results: str, user_query: str, classification_type: str) -> Dict[str, Any]:
     """Generate analysis from query results"""
-    from app.config.prompts import GENERATE_ANALYSIS_FOR_USER_QUERY_PROMPT
+    from app.config.prompts.prompts import GENERATE_ANALYSIS_FOR_USER_QUERY_PROMPT
     
     system_prompt = GENERATE_ANALYSIS_FOR_USER_QUERY_PROMPT["systemPrompt"]
     user_prompt = f"""
@@ -190,7 +190,7 @@ async def generate_analysis(query_results: str, user_query: str, classification_
 
 async def analysis_evaluation(analysis_data: Any, query_results: str, user_query: str, llm_suggestions) -> Dict[str, Any]:
     """Evaluate analysis quality"""
-    from app.config.prompts import ANALYSIS_EVAL_PROMPT
+    from app.config.prompts.prompts import ANALYSIS_EVAL_PROMPT
     
     system_prompt = ANALYSIS_EVAL_PROMPT["systemPrompt"]
     user_prompt = f"""

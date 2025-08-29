@@ -17,6 +17,7 @@ def get_logger(name: str):
             "%(asctime)s - %(levelname)s - %(name)s - [%(message)s]"
         )
         handler.setFormatter(formatter)
+        handler.stream.reconfigure(encoding='utf-8')
         logger.addHandler(handler)
 
     logger.propagate = False

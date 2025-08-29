@@ -1,4 +1,5 @@
-from pydantic_settings import BaseSettings
+# from pydantic_settings import BaseSettings
+from pydantic import BaseSettings
 # from typing import List
 
 class Settings(BaseSettings):
@@ -9,11 +10,13 @@ class Settings(BaseSettings):
     DATABASE_URL: str
     DATABASE_URL_DIRECT: str
     GOOGLE_API_KEY: str
-    SUPABASE_URL: str = "NA"
-    SUPABASE_SERVICE_ROLE_KEY: str = "NA"
     FIREBASE_CREDENTIALS_JSON: str
-    # CELERY_BROKER_URL: str
-    # CELERY_RESULT_BACKEND: str
+    INFOBIP_BASE_URL: str
+    INFOBIP_API_KEY: str
+    META_ACCESS_TOKEN: str
+    META_PHONE_NUMBER_ID: str
+    META_API_VERSION: str
+    META_VERIFY_TOKEN: str
     
     class Config:
         env_file = ".env"

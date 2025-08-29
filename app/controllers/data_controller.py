@@ -2,11 +2,10 @@ from fastapi import UploadFile,  Request, status, HTTPException
 from fastapi.responses import JSONResponse
 from typing import List
 from pathlib import Path
-# from app.config.settings import settings
 from app.config.logger import get_logger
 from app.config.postgres import database as db
 from app.utils.uniqueId import generate_unique_id, str_to_uuid
-# from app.utils.cloud_file_bucket import upload_to_supabase
+from app.utils.db_utils import update_job_queue
 
 logger = get_logger("API Logger")
 
@@ -31,29 +30,6 @@ async def check_upload_status(queue_name, user_id, upload_id):
         return result;         
     except Exception as error:
         logger.error(f"Error while checking status for upload_id: {upload_id}", error)
-        raise
-
-async def update_job_queue(job_data, queue_name, channel_name, payload):
-    try:
-        async with db.transaction():
-            await db.execute(f"""
-                INSERT INTO {queue_name} (
-                    upload_id, user_id, email, table_name, file_path, original_file_name
-                ) VALUES (
-                    :upload_id, :user_id, :email, :table_name, :file_path, :original_file_name
-                )
-            """, values={
-                 "upload_id": job_data["uploadId"],
-                 "user_id": job_data["userid"],
-                 "email": job_data["email"],
-                 "table_name": job_data["tableName"],
-                 "file_path": job_data["filePath"],
-                 "original_file_name": job_data["originalFileName"]
-            })
-            await db.execute(f"NOTIFY {channel_name}, '{payload}';")
-        logger.info(f"Successfully added job {job_data['uploadId']} and sent notification.")
-    except Exception as error:
-        logger.error(f"Error inserting into {queue_name}: {error}")
         raise
 
 async def remove_upload_data(userid, upload_id):
@@ -127,7 +103,7 @@ async def file_upload_handler(request: Request, files: List[UploadFile]):
                 table_name = f"table_{unique_table_id}"
                 queue_name = ''
 
-                # Save the file temporarily
+                # Saving the file temporarily
                 temp_dir = Path("/tmp/uploads")
                 temp_dir.mkdir(parents=True, exist_ok=True)
                 file_path = temp_dir / file.filename
@@ -156,10 +132,10 @@ async def file_upload_handler(request: Request, files: List[UploadFile]):
 
                 if ext == ".csv":
                     queue_name = "csv_queue"
-                    await update_job_queue(job_data, queue_name, "csv_job", "csv")
+                    await update_job_queue(job_data, queue_name, "csv_job", "csv", logger)
                 elif ext in [".xlsx", ".xls"]:
                     queue_name = "excel_queue"
-                    await update_job_queue(job_data, queue_name, "excel_job", "excel")
+                    await update_job_queue(job_data, queue_name, "excel_job", "excel", logger)
                 # elif ext == ".json":
                 #     await json_queue.enqueue(job_data)
                 else:

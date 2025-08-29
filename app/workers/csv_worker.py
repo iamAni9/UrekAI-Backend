@@ -2,10 +2,9 @@ from app.config.logger import get_logger
 from app.config.constants import MAX_UPLOAD_RETRIES, SAMPLE_ROW_LIMIT
 from app.utils.db_utils import remove_analysis, delete_temp_table, create_table_from_schema, update_upload_progress_in_queue
 from app.utils.schema_generation import generate_table_schema
-# from app.utils.cloud_file_bucket import download_and_save_file
 from app.helper.csv_worker_helper import get_sample_rows, add_data_into_table_from_csv
+from app.utils.whatsapp_message import send_upload_status_to_whatsapp
 import os, math, asyncio
-# from app.config.settings import settings
 
 logger = get_logger("CSV Worker")
 
@@ -38,13 +37,12 @@ async def csv_processing(conn):
 async def handle_job(job, conn):
     try:
         file_path = job["file_path"]
-        # if settings.ENV != 'development':
-        #     file_path = await download_and_save_file(file_path)
         table_name = job["table_name"]
         userid = job["user_id"]
-        email = job["email"]
         upload_id = job["upload_id"]
         original_file_name = job["original_file_name"]
+        medium = job["medium"]
+        receiver_no = job["receiver_no"]
         
         for attempt in range(1, MAX_UPLOAD_RETRIES + 1):
             table_created = False
@@ -80,6 +78,9 @@ async def handle_job(job, conn):
                 logger.info(f"CSV processing completed successfully for upload {upload_id}")
                 await update_upload_progress_in_queue(conn, 'csv_queue', logger, upload_id, 100, "completed")
                 
+                if medium == "WHATSAPP":
+                    await send_upload_status_to_whatsapp(userid, logger, receiver_no, f"Upload completed for {original_file_name} and UploadID = {upload_id}")
+                
                 return  
 
             except Exception as e:
@@ -90,10 +91,13 @@ async def handle_job(job, conn):
                 
                 if table_created:
                     await delete_temp_table(conn, table_name, logger)
+                    table_created = False
                 
             if attempt == MAX_UPLOAD_RETRIES:
                 logger.error(f"All {MAX_UPLOAD_RETRIES} attempts failed for upload {upload_id}")
                 await update_upload_progress_in_queue(conn, 'csv_queue', logger, upload_id, 100, "failed")
+                if medium == "WHATSAPP":
+                    await send_upload_status_to_whatsapp(userid, logger, receiver_no, f"Upload failed for {original_file_name} and UploadID = {upload_id}")
                 raise
 
             # Retry delay (exponential backoff)
@@ -103,11 +107,13 @@ async def handle_job(job, conn):
 
             # Cleanup if partially created
             if table_created:
-                await delete_temp_table(conn, table_name)
+                await delete_temp_table(conn, table_name, logger)
 
         # Deleting file received
         os.remove(file_path)
         logger.info(f"Temporary CSV file deleted: {file_path}")
     except Exception as e:
         await update_upload_progress_in_queue(conn, 'csv_queue', logger, upload_id, 0, "failed")
+        if medium == "WHATSAPP":
+            pass
         raise

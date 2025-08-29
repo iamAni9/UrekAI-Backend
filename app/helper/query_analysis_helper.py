@@ -7,16 +7,17 @@ from pydantic import BaseModel
 from app.config.postgres import database as db
 from app.config.constants import MAX_RETRY_ATTEMPTS, INITIAL_RETRY_DELAY
 from app.config.logger import get_logger
-from app.config.prompts_v2 import QUERY_CLASSIFICATION_PROMPT, SQL_GENERATION_PROMPT, GENERATE_ANALYSIS_FOR_USER_QUERY_PROMPT, ANALYSIS_EVAL_PROMPT
+from app.config.prompts.prompts_v2 import QUERY_CLASSIFICATION_PROMPT, SQL_GENERATION_PROMPT, GENERATE_ANALYSIS_FOR_USER_QUERY_PROMPT, ANALYSIS_EVAL_PROMPT
+from app.config.prompts.whatsapp_prompts import WHATSAPP_QUERY_CLASSIFICATION_PROMPT, WHATSAPP_DATA_MANAGEMENT_PROMPT
 from typing import Dict, List, Optional, Any
-from app.models.gemini import query_ai
+from app.ai.gemini import query_ai
 
 logger = get_logger("API Logger")
 
 class QueryClassification(BaseModel):
     type: str 
     message: str
-    user_message: str
+    user_message: str | None = None
     
 class QueryRequest(BaseModel):
     userQuery: str
@@ -65,8 +66,10 @@ async def retry_operation(
 
 def clean_json_string(json_str: str) -> str:
     json_match = re.search(r'```(?:json)?\s*(\{[\s\S]*?\})\s*```', json_str)
+    
     if json_match:
         json_str = json_match.group(1)
+    
     
     json_str = (json_str
                 .replace('\n', ' ')
@@ -115,9 +118,12 @@ def flatten_and_format(data: Any, indent: int = 0) -> str:
     
     return output.strip()
 
-async def classify_query(user_query: str) -> QueryClassification:   
-
-    system_prompt = QUERY_CLASSIFICATION_PROMPT["systemPrompt"]
+async def classify_query(user_query: str, medium = None) -> QueryClassification:   
+    if medium == "WhatsApp":
+        system_prompt = WHATSAPP_QUERY_CLASSIFICATION_PROMPT["systemPrompt"]
+    else:
+        system_prompt = QUERY_CLASSIFICATION_PROMPT["systemPrompt"]
+    
     user_prompt = f'Classify this query: "{user_query}"'
     
     async def classify_operation():
@@ -143,13 +149,66 @@ async def classify_query(user_query: str) -> QueryClassification:
     
     return await retry_operation(classify_operation, 'Query Classification')
 
+def inject_safe_where(query: str) -> str:
+    """Safely wrap WHERE clause conditions with (1=0 OR ...)."""
+    match = re.search(r'\bwhere\b', query, re.IGNORECASE)
+    if not match:
+        return query
+
+    where_pos = match.end()
+
+    # Split into before-WHERE and after-WHERE
+    before = query[:where_pos]
+    after = query[where_pos:]
+
+    # If LIMIT exists, separate it out
+    limit_match = re.search(r'\blimit\b.*$', after, re.IGNORECASE)
+    if limit_match:
+        conditions = after[:limit_match.start()]
+        limit_clause = after[limit_match.start():]
+    else:
+        conditions = after
+        limit_clause = ""
+
+    # Wrap conditions safely
+    new_conditions = f" (1=0 OR {conditions.strip()}) "
+    return before + new_conditions + limit_clause
+
+async def data_management_selection(
+    user_query: str, 
+    classification_type: str, 
+    structured_metadata: str,
+) -> str:
+    
+    system_prompt = WHATSAPP_DATA_MANAGEMENT_PROMPT["systemPrompt"]
+    user_prompt = f"""
+        {WHATSAPP_DATA_MANAGEMENT_PROMPT["userPrompt"]}
+
+        Table Metadata:
+        {structured_metadata}
+
+        Classification Type:
+        {classification_type}
+
+        User Question:
+        {user_query}
+    """
+    
+    async def generate_operation():
+        selection_response = await query_ai(user_prompt, system_prompt)
+        clean_selection = clean_json_string(str(selection_response))
+        return json.loads(clean_selection)
+    
+    return await retry_operation(generate_operation, 'Data Management Operation')
+
 async def generate_sql_queries(
     user_query: str, 
     classification_type: str, 
     structured_metadata: str, 
-    llm_suggestions: Any
+    llm_suggestions: Any,
 ) -> str:
-        
+    
+     
     system_prompt = SQL_GENERATION_PROMPT["systemPrompt"]
     user_prompt = f"""
         {SQL_GENERATION_PROMPT["userPrompt"]}
@@ -196,14 +255,16 @@ def parse_generated_queries(generated_queries_raw: Any) -> Optional[List[Dict[st
             if 'select' not in q['query'].lower():
                 raise ValueError('Invalid SQL query: missing SELECT statement')
             
-            # Adding LIMIT 100 if not present and not an aggregate query
+            # Adding LIMIT 1000 if not present and not an aggregate query
             query_lower = q['query'].lower()
             if 'limit' not in query_lower and 'group by' not in query_lower:
-                q['query'] = q['query'].rstrip(';') + ' LIMIT 100'
+                q['query'] = q['query'].rstrip(';') + ' LIMIT 1000'
             
             # Adding error handling for ID lookups
+            # if 'where' in query_lower and 'id' in query_lower:
+            #     q['query'] = q['query'].rstrip(';') + ' OR 1=0'
             if 'where' in query_lower and 'id' in query_lower:
-                q['query'] = q['query'].rstrip(';') + ' OR 1=0'
+                q['query'] = inject_safe_where(q['query'].rstrip(';')) + ';'
         
         return queries
     except (json.JSONDecodeError, ValueError) as e:
