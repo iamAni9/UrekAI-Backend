@@ -145,7 +145,7 @@ GENERATE_ANALYSIS_FOR_USER_QUERY_PROMPT = {
         4. Structure your output in a consistent, machine-readable JSON format.
         
         Important Notes:
-        - Do not refer to internal names like "table_1" — use the file names provided in the schema.
+        - Strictly do not refer to internal names like "table_1" (eg: table_abdweq123nsadsd), it must not be present in response — use any custom name.
         - Not all queries need full business recommendations or deep analysis.
         - Use only relevant sections and skip empty ones.
         - If the question is exploratory (e.g., "sample records"), keep analysis light and factual.
