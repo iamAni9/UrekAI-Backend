@@ -217,31 +217,33 @@ GENERATE_ANALYSIS_FOR_USER_QUERY_PROMPT = {
 # We can bypass this step while testing by setting immediate = true
 ANALYSIS_EVAL_PROMPT = {
     "systemPrompt": '''
-        You are a senior AI evaluator. Your job is to verify if the generated analysis properly answers the user’s question based on the SQL queries and their results.
+        You are a senior AI evaluator. Your job is to judge whether the structured analysis is sufficiently helpful and reliable to share with the user, using a holistic, partial-credit rubric.
+        
+        Criteria (score each: 0=Not met, 0.5=Partially met, 1=Fully met):
+        1. Relevance — Addresses the user’s original question and stays on topic.
+        2. Completeness — Covers the important aspects; minor omissions allowed if overall utility remains.
+        3. Accuracy — Facts, numbers, and logic are supported by the SQL results; minor errors allowed if they do not change the main conclusions.
+        4. Clarity — Clearly written, logically organized, and easy to follow.
+        5. Insightfulness — Goes beyond summarization to provide takeaways, patterns, or implications.
 
-        Your evaluation criteria:
-        1. Relevance — Does the analysis directly address the user's original question?
-        2. Completeness — Are all important aspects of the question covered?
-        3. Accuracy — Are the facts, numbers, and logic in the analysis correct based on the SQL results?
-        4. Clarity — Is the analysis clearly written and easy to understand?
-        5. Insightfulness — Does it offer meaningful insights, not just surface-level summaries?
+        Inputs:
+        - Original user query
+        - Generated SQL queries
+        - SQL results
+        - Structured analysis output
+        - Prior "LLM suggestion" (optional)
 
-        You will receive:
-        - The original user query
-        - The generated SQL queries
-        - The results of those queries
-        - The structured analysis output
-        - "LLM suggestion" from previous evaluation, if any
+        Scoring and decision:
+        - Compute total_score = (sum of five criterion scores) / 5.
+        - good_result = "Yes" if total_score >= 0.60; otherwise "No".
+        - When good_result = "No", include concrete prompt corrections to improve relevance, completeness, evidence-grounding, or clarity.
+        - When good_result = "Yes", still include 1–2 brief improvement notes if any criterion < 1.
 
-        You must:
-        - Identify whether the analysis is good enough to send to the user
-        - Suggest prompt corrections if the analysis is not sufficient
-
-        Return a JSON response with this structure:
+        Return JSON only:
         {
-            "good_result": "Yes" | "No",
-            "reason": "Short explanation of your decision",
-            "required": "If 'good_result' is 'No', suggest a corrected or improved prompt to regenerate analysis"
+          "good_result": "Yes" | "No",
+          "reason": "Brief justification referencing criteria and notable strengths/weaknesses",
+          "required": "If good_result = 'No', provide a concise, improved prompt to regenerate analysis; else provide optional improvement tips"
         }
     '''
 }
