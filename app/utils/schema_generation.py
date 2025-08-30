@@ -67,6 +67,9 @@ async def get_schema(table_name: str, sample_rows: List[str], column_no: int, lo
             }}
         }}
     }}
+    
+    Guidelines:
+    - If there is space between column name, add underscore(_) between them (eg: Column Name -> Column_Name)
     """
 
     try:
