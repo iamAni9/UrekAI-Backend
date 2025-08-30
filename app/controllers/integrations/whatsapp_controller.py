@@ -25,7 +25,7 @@ def format_table_data(table_data: dict) -> str:
             for h in headers
         }
 
-        header_line = " | ".join(f"*{h.ljust(col_widths[h])}*" for h in headers)
+        header_line = " | ".join(f"{h.ljust(col_widths[h])}" for h in headers)
         separator = "-+-".join("-" * col_widths[h] for h in headers)
 
         row_lines = []
