@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Request, BackgroundTasks, Query
 from app.config.logger import get_logger
 from app.controllers.integrations import whatsapp_controller
+from app.controllers.integrations.shopify_controllers import shopify_auth_controller
 
 logger = get_logger("API Logger")
 router = APIRouter()
@@ -13,10 +14,6 @@ async def hello_integration():
         "message": "You can access integrated facilities."
         }
     
-# @router.post("/whatsapp")
-# async def whatsapp_webhook(request: Request, background_tasks: BackgroundTasks):
-#     return await whatsapp_controller.whatsapp_handler_infobip(request, background_tasks)
-
 @router.api_route("/whatsapp", methods=["GET", "POST"])
 async def whatsapp_webhook(
     request: Request,
@@ -37,3 +34,11 @@ async def whatsapp_webhook(
         hub_challenge,
         hub_verify_token
     )
+
+@router.get("/auth/shopify", tags=["Shopify Auth"])
+async def initiate_shopify_auth(request: Request, shop: str, host: str):
+    return await shopify_auth_controller.shopify_auth_redirect(request, shop, host)
+
+@router.get("/auth/shopify/callback", tags=["Shopify Auth"])
+async def shopify_auth_callback(request: Request):
+    return await shopify_auth_controller.shopify_auth_callback(request)

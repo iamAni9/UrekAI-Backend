@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     SESSION_SECRET: str = "fallback-secret"
     ENV: str = "development"
     ENV_PORT: int = 10000
+    APP_URL: str
     DATABASE_URL: str
     DATABASE_URL_DIRECT: str
     GOOGLE_API_KEY: str
@@ -17,6 +18,9 @@ class Settings(BaseSettings):
     META_PHONE_NUMBER_ID: str
     META_API_VERSION: str
     META_VERIFY_TOKEN: str
+    SHOPIFY_CLIENT_ID: str = None
+    SHOPIFY_CLIENT_SECRET: str = None
+    SHOPIFY_SCOPES: str = None
     
     class Config:
         env_file = ".env"
