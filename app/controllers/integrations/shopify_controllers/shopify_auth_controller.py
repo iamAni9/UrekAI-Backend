@@ -2,7 +2,7 @@ from fastapi import Request
 from fastapi.responses import RedirectResponse
 from app.config.settings import settings
 import hmac
-from urllib.parse import urlencode, quote
+from urllib.parse import parse_qsl, urlencode, quote
 from app.config.logger import get_logger
 import hashlib
 
@@ -41,27 +41,37 @@ async def shopify_auth_redirect(request: Request, shop: str, host: str):
         logger.error(f"Error initiating Shopify auth: {str(e)}")
         return {"error": "Internal server error"}, 500
 
-def verify_hmac(params: dict, secret: str) -> bool:
+def verify_hmac_from_raw_query(raw_query: str, secret: str) -> bool:
     """
-    Verify the HMAC signature from Shopify.
+    Verify Shopify HMAC using raw query string.
+    raw_query: request.url.query
     """
-    # Extract HMAC and remove it from params
-    hmac_from_shopify = params.pop('hmac', '')
+    # Parse query string into list of (key, value)
+    params = parse_qsl(raw_query, keep_blank_values=True)
 
-    # Sort parameters lexicographically by key
-    sorted_params = sorted((k, v) for k, v in params.items())
+    # Filter out hmac
+    params = [(k, v) for k, v in params if k != 'hmac']
 
-    # Encode as query string, using quote instead of quote_plus
+    # Sort lexicographically
+    sorted_params = sorted(params)
+
+    # Rebuild message exactly as Shopify expects
     message = urlencode(sorted_params, safe='~', quote_via=quote)
 
     # Compute HMAC-SHA256
-    digest = hmac.new(secret.encode('utf-8'), message.encode('utf-8'), hashlib.sha256).hexdigest()
+    calculated_hmac = hmac.new(secret.encode('utf-8'),
+                               message.encode('utf-8'),
+                               hashlib.sha256).hexdigest()
 
+    # Extract hmac from original query
+    hmac_from_shopify = dict(parse_qsl(raw_query)).get('hmac', '')
+    
+    # Debug logs
     logger.info(f"HMAC message: {message}")
-    logger.info(f"Calculated digest: {digest}")
+    logger.info(f"Calculated digest: {calculated_hmac}")
     logger.info(f"HMAC from Shopify: {hmac_from_shopify}")
-    # Compare safely
-    return hmac.compare_digest(digest, hmac_from_shopify)
+
+    return hmac.compare_digest(calculated_hmac, hmac_from_shopify)
 
 async def shopify_auth_callback(request: Request):
     params = dict(request.query_params)
@@ -78,7 +88,8 @@ async def shopify_auth_callback(request: Request):
         return {"error": "Missing shop or code parameter"}, 400
 
     # Verify HMAC
-    if not verify_hmac(params.copy(), settings.SHOPIFY_CLIENT_SECRET):
+    raw_query = request.url.query  # Use the raw query string
+    if not verify_hmac_from_raw_query(raw_query, settings.SHOPIFY_CLIENT_SECRET):
         return {"error": "Invalid HMAC signature"}, 403
 
     # Exchange code for token (existing logic)
