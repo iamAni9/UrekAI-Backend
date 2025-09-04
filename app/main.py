@@ -2,6 +2,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
 from starlette.middleware.sessions import SessionMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from app.config.settings import settings
 from app.config.logger import get_logger
 from app.routes import register_routers
@@ -51,6 +52,20 @@ def create_app() -> FastAPI:
         max_age=3600 * 24 * 7,
     )
 
+    class ShopifyCSPMiddleware(BaseHTTPMiddleware):
+        async def dispatch(self, request: Request, call_next):
+            response = await call_next(request)
+            shop = request.query_params.get('shop')
+            if shop and 'shopify' in request.url.path:
+                response.headers["Content-Security-Policy"] = (
+                    f"frame-ancestors https://{shop} https://admin.shopify.com;"
+                )
+                response.headers["X-Frame-Options"] = "ALLOWALL"
+            
+            return response
+
+    app.add_middleware(ShopifyCSPMiddleware)
+    
     # Routers
     register_routers(app)
 
