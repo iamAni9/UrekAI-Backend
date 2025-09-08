@@ -5,6 +5,7 @@ import hmac
 from urllib.parse import parse_qsl, urlencode, quote
 from app.config.logger import get_logger
 import hashlib
+import httpx
 
 logger = get_logger("Shopify Auth Controller")
             
@@ -41,42 +42,34 @@ async def shopify_auth_redirect(request: Request, shop: str, host: str):
         logger.error(f"Error initiating Shopify auth: {str(e)}")
         return {"error": "Internal server error"}, 500
 
-def verify_hmac_from_raw_query(raw_query: str, secret: str) -> bool:
-    """
-    Verify Shopify OAuth HMAC by removing only the 'hmac' pair
-    from the raw, percent-encoded query string, preserving everything else.
-    """
-    # 1. Split on '&' to get each 'key=value' chunk (still percent-encoded)
-    parts = raw_query.split('&')
+def verify_shopify_hmac(params: dict, secret: str) -> bool:
+    hmac_from_shopify = params.pop("hmac", None)
     
-    # 2. Filter out the 'hmac=' chunk but keep ordering & encoding intact
-    filtered = [p for p in parts if not p.startswith('hmac=')]
+    sorted_params = "&".join(
+        f"{key}={value}" for key, value in sorted(params.items())
+    )
     
-    # 3. Rejoin to form the exact message Shopify used
-    message = '&'.join(filtered)
-    logger.info(f"HMAC message (raw): {message}")
-    
-    # 4. Compute hex-digest
-    calculated_hmac = hmac.new(
-        secret.encode('utf-8'),
-        message.encode('utf-8'),
-        hashlib.sha256
+    generated_hmac = hmac.new(
+        secret.encode("utf-8"),
+        sorted_params.encode("utf-8"),
+        hashlib.sha256,
     ).hexdigest()
     
-    # 5. Extract Shopify's HMAC to compare
-    #    Use parse_qsl just to grab the hmac; this does not affect the message
-    hmac_from_shopify = dict(parse_qsl(raw_query, keep_blank_values=True)).get('hmac', '')
-    logger.info(f"Calculated digest: {calculated_hmac}")
-    logger.info(f"HMAC from Shopify: {hmac_from_shopify}")
-    
-    return hmac.compare_digest(calculated_hmac, hmac_from_shopify)
+    logger.info(f"Generated HMAC: {generated_hmac}, HMAC from Shopify: {hmac_from_shopify}")
+    return hmac.compare_digest(generated_hmac, hmac_from_shopify)
 
 async def shopify_auth_callback(request: Request):
     params = dict(request.query_params)
-    logger.info(f"The parameters - {params}")
-    shop = params.get('shop')
+    # logger.info(f"The parameters - {params}")
     code = params.get('code')
-    state = params.get('state', '')
+    hmac_value = params.get('hmac')
+    host = params.get('host')
+    shop = params.get('shop')
+    state = params.get('state')
+    timestamp = params.get('timestamp')
+    
+    if not all([code, hmac_value, host, shop, state, timestamp]):
+        return {"error": "Missing some parameters"}, 400
     
     # Parse state to get host and embedded status
     state_parts = state.split('|') if state else []
@@ -86,13 +79,43 @@ async def shopify_auth_callback(request: Request):
     if not shop or not code:
         return {"error": "Missing shop or code parameter"}, 400
 
-    # Verify HMAC
-    raw_query = request.url.query  # Use the raw query string
-    if not verify_hmac_from_raw_query(raw_query, settings.SHOPIFY_CLIENT_SECRET):
+    if not verify_shopify_hmac(params.copy(), settings.SHOPIFY_CLIENT_SECRET):
         return {"error": "Invalid HMAC signature"}, 403
 
-    # Exchange code for token (existing logic)
-    # ... token exchange code ...
+    access_token = None
+    try:
+        # 1. Prepare the request to Shopify's token endpoint
+        token_url = f"https://{shop}/admin/oauth/access_token"
+        payload = {
+            "client_id": settings.SHOPIFY_CLIENT_ID,
+            "client_secret": settings.SHOPIFY_CLIENT_SECRET,
+            "code": code,
+        }
+        
+        # 2. Make the POST request
+        async with httpx.AsyncClient() as client:
+            response = await client.post(token_url, json=payload)
+            response.raise_for_status() # Raise an exception for HTTP errors
+            
+            # 3. Process the response
+            data = response.json()
+            access_token = data.get('access_token')
+            logger.info(f"Successfully obtained access token for {shop}")
+            
+            # 4. Save the token to your database
+            # await save_token_to_db(shop_name=shop, token=access_token)
+            # This is where you would store the token for future API calls.
+            # Make sure this part is implemented!
+
+    except httpx.HTTPStatusError as e:
+        logger.error(f"Error exchanging code for token: {e.response.text}")
+        return {"error": "Could not retrieve access token from Shopify."}, 500
+    except Exception as e:
+        logger.error(f"An unexpected error occurred during token exchange: {str(e)}")
+        return {"error": "Internal server error during token exchange."}, 500
+
+    if not access_token:
+        return {"error": "Failed to obtain access token."}, 400
 
     # Redirect with proper CSP headers
     final_redirect_url = f"{settings.APP_URL}/shopify/dashboard?shop={shop}&host={host}&embedded={embedded}"
