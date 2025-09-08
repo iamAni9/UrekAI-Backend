@@ -43,38 +43,37 @@ async def shopify_auth_redirect(request: Request, shop: str, host: str):
 
 def verify_hmac_from_raw_query(raw_query: str, secret: str) -> bool:
     """
-    Verify Shopify HMAC using raw query string.
-    raw_query: request.url.query
+    Verify Shopify OAuth HMAC by removing only the 'hmac' pair
+    from the raw, percent-encoded query string, preserving everything else.
     """
-    # Parse query string into list of (key, value)
-    params = parse_qsl(raw_query, keep_blank_values=True)
-
-    # Filter out hmac
-    params = [(k, v) for k, v in params if k != 'hmac']
-
-    # Sort lexicographically
-    sorted_params = sorted(params)
-
-    # Rebuild message exactly as Shopify expects
-    message = urlencode(sorted_params, safe='~', quote_via=quote)
-
-    # Compute HMAC-SHA256
-    calculated_hmac = hmac.new(secret.encode('utf-8'),
-                               message.encode('utf-8'),
-                               hashlib.sha256).hexdigest()
-
-    # Extract hmac from original query
-    hmac_from_shopify = dict(parse_qsl(raw_query)).get('hmac', '')
+    # 1. Split on '&' to get each 'key=value' chunk (still percent-encoded)
+    parts = raw_query.split('&')
     
-    # Debug logs
-    logger.info(f"HMAC message: {message}")
+    # 2. Filter out the 'hmac=' chunk but keep ordering & encoding intact
+    filtered = [p for p in parts if not p.startswith('hmac=')]
+    
+    # 3. Rejoin to form the exact message Shopify used
+    message = '&'.join(filtered)
+    logger.info(f"HMAC message (raw): {message}")
+    
+    # 4. Compute hex-digest
+    calculated_hmac = hmac.new(
+        secret.encode('utf-8'),
+        message.encode('utf-8'),
+        hashlib.sha256
+    ).hexdigest()
+    
+    # 5. Extract Shopify's HMAC to compare
+    #    Use parse_qsl just to grab the hmac; this does not affect the message
+    hmac_from_shopify = dict(parse_qsl(raw_query, keep_blank_values=True)).get('hmac', '')
     logger.info(f"Calculated digest: {calculated_hmac}")
     logger.info(f"HMAC from Shopify: {hmac_from_shopify}")
-
+    
     return hmac.compare_digest(calculated_hmac, hmac_from_shopify)
 
 async def shopify_auth_callback(request: Request):
     params = dict(request.query_params)
+    logger.info(f"The parameters - {params}")
     shop = params.get('shop')
     code = params.get('code')
     state = params.get('state', '')
