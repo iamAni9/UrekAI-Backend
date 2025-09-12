@@ -6,7 +6,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from app.config.settings import settings
 from app.config.logger import get_logger
 from app.routes import register_routers
-from app.config.postgres import database as db
+from app.config.database_config.postgres import database as db
 from contextlib import asynccontextmanager
 
 logger = get_logger("API Logger")

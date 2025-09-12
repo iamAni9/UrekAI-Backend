@@ -7,7 +7,7 @@ from fastapi import HTTPException, Request, Response
 from fastapi.responses import JSONResponse
 
 from app.config.logger import get_logger
-from app.config.postgres import database as db
+from app.config.database_config.postgres import database as db
 from app.ai.gemini import query_ai
 from app.utils.uniqueId import str_to_uuid
 from app.config.constants import MAX_RETRY_ATTEMPTS, MAX_EVAL_ITERATION, INITIAL_RETRY_DELAY

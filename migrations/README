@@ -1,0 +1,7 @@
+Generic single-database configuration.
+
+This will generate a migration file inside alembic/versions/.
+# alembic revision --autogenerate -m "Your message"
+
+This creates the tables in DB.
+# alembic upgrade head

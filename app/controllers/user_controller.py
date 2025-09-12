@@ -5,10 +5,10 @@ from fastapi.concurrency import run_in_threadpool
 from datetime import datetime, timezone
 import bcrypt
 import httpx
-from app.config.postgres import database as db
+from app.config.database_config.postgres import database as db
 from app.config.logger import get_logger
 from app.utils.uniqueId import generate_unique_id
-from app.config.firebase import generate_firebase_custom_token
+from app.config.database_config.firebase import generate_firebase_custom_token
 
 logger = get_logger("API Logger")
 

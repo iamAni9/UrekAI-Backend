@@ -2,7 +2,8 @@ from datetime import datetime, timezone
 from typing import Dict, Any
 import asyncpg
 from fastapi import HTTPException, status
-from app.config.postgres import database as db
+from app.config.database_config.postgres import database as db
+from app.utils.uniqueId import generate_unique_id
 
 async def update_job_queue(job_data, queue_name, channel_name, payload, logger):
     try:
@@ -180,12 +181,48 @@ async def get_user_id_from_registered_no(number: str, logger):
         logger.error(f"Failed to retrieve user_id using number: {e}")
         return None
     
-# async def get_registered_no_from_user_id(user_id: str, conn, logger):
-#     try:
-#         query = "SELECT number FROM registered_number WHERE id = $1"
-#         result = await conn.execute(query, user_id)
-#         number = result.scalar_one_or_none()  # returns the value or None
-#         return number
-#     except Exception as e:
-#         logger.error(f"Failed to retrieve number using user_id: {e}")
-#         raise
+async def save_token_to_db(shop_name: str, access_token: str, email: str, owner_name: str, logger):
+    new_id = generate_unique_id()
+    now = datetime.now(timezone.utc)
+    query = """
+        WITH ins AS (
+            INSERT INTO users (id, name, email, password, created_at, updated_at)
+            VALUES (:id, :name, :email, :password, :created_at, :updated_at)
+            ON CONFLICT (email) DO NOTHING
+            RETURNING id
+        )
+        SELECT id FROM ins
+        UNION
+        SELECT id FROM users WHERE email = :email;
+    """
+    try:
+        result = await db.fetch_one(query, {
+            "id": new_id,
+            "name": owner_name,
+            "email": email,
+            "password": "null_null",
+            "created_at": now,
+            "updated_at": now
+        })
+
+        user_id = result["id"]
+    except Exception as e:
+        logger.error(f"Failed to insert user data: {e}")
+        raise
+    
+    query = """
+    INSERT INTO registered_shopify_store (id, store_name, access_token, updated_at)
+    VALUES ($1, $2, $3, $4)
+    ON CONFLICT (id, store_name) DO UPDATE SET
+        access_token = EXCLUDED.access_token,
+        updated_at = EXCLUDED.updated_at;
+    """
+    values = (user_id, shop_name, access_token, now)
+    
+    try:
+        await db.execute(query, *values)
+        logger.info("Successfully inserted shopify data into the database.")
+    except Exception as e:
+        logger.error(f"Failed to insert shopify data: {e}")
+        raise
+    

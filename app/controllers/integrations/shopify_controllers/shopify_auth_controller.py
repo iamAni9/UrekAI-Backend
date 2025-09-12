@@ -2,7 +2,7 @@ from fastapi import Request
 from fastapi.responses import RedirectResponse
 from app.config.settings import settings
 import hmac
-from urllib.parse import parse_qsl, urlencode, quote
+from app.utils.db_utils import save_token_to_db
 from app.config.logger import get_logger
 import hashlib
 import httpx
@@ -71,7 +71,7 @@ async def shopify_auth_callback(request: Request):
     if not all([code, hmac_value, host, shop, state, timestamp]):
         return {"error": "Missing some parameters"}, 400
     
-    # Parse state to get host and embedded status
+    # Parsing state to get host and embedded status
     state_parts = state.split('|') if state else []
     host = state_parts[0] if len(state_parts) > 0 else ''
     embedded = state_parts[1] if len(state_parts) > 1 else '0'
@@ -84,7 +84,7 @@ async def shopify_auth_callback(request: Request):
 
     access_token = None
     try:
-        # 1. Prepare the request to Shopify's token endpoint
+        # 1. Preparing the request to Shopify's token endpoint
         token_url = f"https://{shop}/admin/oauth/access_token"
         payload = {
             "client_id": settings.SHOPIFY_CLIENT_ID,
@@ -92,20 +92,32 @@ async def shopify_auth_callback(request: Request):
             "code": code,
         }
         
-        # 2. Make the POST request
+        # 2. Making the POST request for access token
         async with httpx.AsyncClient() as client:
             response = await client.post(token_url, json=payload)
             response.raise_for_status() # Raise an exception for HTTP errors
             
-            # 3. Process the response
+            # 3. Processing the response
             data = response.json()
             access_token = data.get('access_token')
+            if not access_token:
+                return {"error": "Failed to obtain access token"}, 400
             logger.info(f"Successfully obtained access token for {shop}")
             
-            # 4. Save the token to your database
-            # await save_token_to_db(shop_name=shop, token=access_token)
-            # This is where you would store the token for future API calls.
-            # Make sure this part is implemented!
+            shop_url = f"https://{shop}/admin/api/2023-01/shop.json"
+            shop_res = await client.get(
+                shop_url,
+                headers={"X-Shopify-Access-Token": access_token},
+            )
+            shop_res.raise_for_status()
+            shop_data = shop_res.json().get("shop", {})
+            logger.info(f"Shop data retrieved: {shop_data}")
+            email = shop_data.get("email")
+            owner_name = shop_data.get("shop_owner")
+            shop_name = shop_data.get("myshopify_domain")
+            
+            # 4. Saving the token and creating user if not exists
+            await save_token_to_db(shop_name, access_token, email, owner_name, logger)
 
     except httpx.HTTPStatusError as e:
         logger.error(f"Error exchanging code for token: {e.response.text}")
@@ -113,9 +125,6 @@ async def shopify_auth_callback(request: Request):
     except Exception as e:
         logger.error(f"An unexpected error occurred during token exchange: {str(e)}")
         return {"error": "Internal server error during token exchange."}, 500
-
-    if not access_token:
-        return {"error": "Failed to obtain access token."}, 400
 
     # Redirect with proper CSP headers
     final_redirect_url = f"{settings.APP_URL}/shopify/dashboard?shop={shop}&host={host}&embedded={embedded}"

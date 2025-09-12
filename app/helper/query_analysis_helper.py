@@ -4,7 +4,7 @@ import re
 import json
 import random
 from pydantic import BaseModel
-from app.config.postgres import database as db
+from app.config.database_config.postgres import database as db
 from app.config.constants import MAX_RETRY_ATTEMPTS, INITIAL_RETRY_DELAY
 from app.config.logger import get_logger
 from app.config.prompts.prompts_v2 import QUERY_CLASSIFICATION_PROMPT, SQL_GENERATION_PROMPT, GENERATE_ANALYSIS_FOR_USER_QUERY_PROMPT, ANALYSIS_EVAL_PROMPT

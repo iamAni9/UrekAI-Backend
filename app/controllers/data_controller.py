@@ -3,7 +3,7 @@ from fastapi.responses import JSONResponse
 from typing import List
 from pathlib import Path
 from app.config.logger import get_logger
-from app.config.postgres import database as db
+from app.config.database_config.postgres import database as db
 from app.utils.uniqueId import generate_unique_id, str_to_uuid
 from app.utils.db_utils import update_job_queue
 
