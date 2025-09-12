@@ -217,15 +217,15 @@ async def save_token_to_db(shop_name: str, access_token: str, email: str, owner_
         access_token = EXCLUDED.access_token,
         updated_at = EXCLUDED.updated_at;
     """
-    values = ({
+    values = {
                "id": user_id, 
                "store": shop_name, 
                "token": access_token, 
                "updated_at": now
-            })
+            }
     
     try:
-        await db.execute(query, *values)
+        await db.execute(query, values)
         logger.info("Successfully inserted shopify data into the database.")
     except Exception as e:
         logger.error(f"Failed to insert shopify data: {e}")
