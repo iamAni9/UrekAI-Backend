@@ -212,12 +212,17 @@ async def save_token_to_db(shop_name: str, access_token: str, email: str, owner_
     
     query = """
     INSERT INTO registered_shopify_store (id, store_name, access_token, updated_at)
-    VALUES ($1, $2, $3, $4)
+    VALUES (:id, :store, :token, :updated_at)
     ON CONFLICT (id, store_name) DO UPDATE SET
         access_token = EXCLUDED.access_token,
         updated_at = EXCLUDED.updated_at;
     """
-    values = (user_id, shop_name, access_token, now)
+    values = ({
+               "id": user_id, 
+               "store": shop_name, 
+               "token": access_token, 
+               "updated_at": now
+            })
     
     try:
         await db.execute(query, *values)
