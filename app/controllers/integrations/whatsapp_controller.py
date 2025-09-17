@@ -1,8 +1,9 @@
 from fastapi import Request, Response, status, BackgroundTasks, Query
 from app.config.logger import get_logger
 from app.helper.query_analysis_helper import *
+from app.helper.shopify_query_analysis_helper import *
 from app.utils.whatsapp_message import send_whatsapp_message, mark_user_message_as_read, send_typing_indicator
-from app.utils.db_utils import update_job_queue, get_user_id_from_registered_no, delete_multiple_tables
+from app.utils.db_utils import update_job_queue, get_user_id_from_registered_no, delete_multiple_tables, fetch_shopify_credentials
 from app.utils.uniqueId import generate_unique_id
 from app.config.integration_config.whatsapp import whatsapp_channel
 from app.config.settings import settings
@@ -12,6 +13,8 @@ from app.config.constants import MAX_EVAL_ITERATION
 logger = get_logger("Whatsapp Logger")
 
 def format_table_data(table_data: dict) -> str:
+    if table_data is None:
+        return None
     parts = []
 
     for table_name, rows in table_data.items():
@@ -40,6 +43,8 @@ def format_table_data(table_data: dict) -> str:
     return "\n\n".join(parts)
 
 def format_analysis(analysis: dict) -> str:
+    if analysis is None:
+        return None
     parts = []
     for key, value in analysis.items():
         if isinstance(value, list):
@@ -106,39 +111,77 @@ async def download_and_process_file_job(userid: str, media_id: str, filename: st
         logger.error(f"Failed to process file {filename}: {e}")
         send_whatsapp_message(sender_no, "An error occurred while processing your file.", logger)
 
-async def process_query_message(userid: str, user_msg: str, sender_no: str):
+async def process_shopify_analysis(user_msg: str, sender_no: str, classification_message: str, shop: str, access_token: str):
     try:
-        classification = await classify_query(user_msg, "WhatsApp")
-        if classification.type in ['general', 'file_management', 'unsupported']:
-            send_whatsapp_message(sender_no, classification.message, logger)
-            return
+        llm_suggestions = None
+        analysis_results = None
+        for attempt in range(1, MAX_EVAL_ITERATION + 1):
+        # for attempt in range(1, 2):
+            logger.info(f"Attempt {attempt} to generate and evaluate ShopifyQL queries")
+            
+            generated_queries_raw = await generate_shopifyQL(user_msg, llm_suggestions)
+            logger.info(f"Generated queries: {generated_queries_raw}")
+            parsed_queries = parse_generated_shopify_queries(generated_queries_raw)
+            if not parsed_queries:
+                logger.error('Failed to parse generated queries')
+                continue
+            logger.info(f"Parsed queries: {parsed_queries}")
+            
+            query_results = await execute_shopify_queries(parsed_queries, shop, access_token)
+            # logger.info(f"Query executed successfully, {query_results}")
+            
+            if query_results and query_results[0]:
+                logger.info("Executing in loop")
 
-        user_metadata = await fetch_user_metadata(userid)
-        if not user_metadata:
-            send_whatsapp_message(sender_no, "You don't have any data uploaded.", logger)
-            return
-        
-        structured_metadata = flatten_and_format(user_metadata)
-        
-        if classification.type in ['check_upload', 'delete_upload']:
-            try:
-                selected_list = await data_management_selection(
-                    user_msg, classification.type, structured_metadata
+                structured_result_lines = []
+                for i, val in enumerate(query_results):
+                    if val.get('data') is not None:
+                        result_str = (
+                            f"Query {i + 1}:\n{val['query']}\nResults:\n"
+                            f"{json.dumps(val['data'], indent=2, default=str)}\n"
+                        )
+                    else:
+                        result_str = (
+                            f"Query {i + 1}:\n{val['query']}\nError:\n"
+                            f"{val.get('errors', 'No results and no error message.')}\n"
+                        )
+                    structured_result_lines.append(result_str)
+                    
+                structured_result = "\n".join(structured_result_lines)
+                logger.info(f"Queries and results: {structured_result}")
+                
+                analysis_results = await generate_analysis(structured_result, user_msg, classification_message)
+
+                if not analysis_results:
+                    logger.warning('Generated analysis failed evaluation')
+                    continue
+                
+                evaluation = await analysis_evaluation(
+                    json.dumps(analysis_results), structured_result, user_msg, llm_suggestions
                 )
-                logger.info(f"Selected_list: {selected_list}")
-                if classification.type == 'check_upload':
-                    data = ", ".join(selected_list['files'])
-                    send_whatsapp_message(sender_no, f"*Your Uploaded Data -*\n{data} ", logger)
-                else:
-                    data = ", ".join(selected_list['files'])
-                    await delete_multiple_tables(selected_list['files'], selected_list['tables'], logger)
-                    send_whatsapp_message(sender_no, f"*Your Uploaded Data*\n{data}\n*Deleted successfully*", logger)
-                return
-            except Exception as e:
-                logger.error(f"Something went wrong, Try Again: {e}")
-                send_whatsapp_message(sender_no, "Something went wrong, Try Again.", logger)
-                return
-        
+                
+                if evaluation.get('good_result') == 'Yes':
+                    logger.info(f"Analysis Data: {analysis_results}")
+                    analysis_text = format_analysis(analysis_results.get("analysis"))
+                    table_data = format_table_data(analysis_results.get("table_data"))
+                    if analysis_text:
+                        send_whatsapp_message(sender_no, analysis_text, logger)
+                    if table_data:
+                        send_whatsapp_message(sender_no, table_data, logger)
+                    break
+
+                llm_suggestions = evaluation.get('required')
+                analysis_results = None
+                
+        if not analysis_results:
+            send_whatsapp_message(sender_no, 'Failed to generate a good analysis after multiple attempts. Try again.', logger)
+            return
+    except Exception as e:
+        logger.error(f"Error in Shopify analysis: {e}")
+        raise
+
+async def process_analysis(user_msg: str, sender_no: str, classification, structured_metadata):
+    try:
         llm_suggestions = None
         analysis_results = None
         for attempt in range(1, MAX_EVAL_ITERATION + 1):
@@ -208,6 +251,51 @@ async def process_query_message(userid: str, user_msg: str, sender_no: str):
         if not analysis_results:
             send_whatsapp_message(sender_no, 'Failed to generate a good analysis after multiple attempts. Try again.', logger)
             return
+    except Exception as e:
+        raise
+
+async def process_query_message(userid: str, user_msg: str, sender_no: str):
+    try:
+        classification = await classify_query(user_msg, "WhatsApp")
+        if classification.type in ['general', 'file_management', 'integration_management', 'unsupported']:
+            send_whatsapp_message(sender_no, classification.message, logger)
+            return
+        
+        user_metadata = await fetch_user_metadata(userid)
+        if not user_metadata:
+            send_whatsapp_message(sender_no, "You don't have any data uploaded.", logger)
+            return
+        
+        structured_metadata = flatten_and_format(user_metadata)
+        
+        if classification.type in ['check_upload', 'delete_upload']:
+            try:
+                selected_list = await data_management_selection(
+                    user_msg, classification.type, structured_metadata
+                )
+                logger.info(f"Selected_list: {selected_list}")
+                if classification.type == 'check_upload':
+                    data = ", ".join(selected_list['files'])
+                    send_whatsapp_message(sender_no, f"*Your Uploaded Data -*\n{data} ", logger)
+                else:
+                    data = ", ".join(selected_list['files'])
+                    await delete_multiple_tables(selected_list['files'], selected_list['tables'], logger)
+                    send_whatsapp_message(sender_no, f"*Your Uploaded Data*\n{data}\n*Deleted successfully*", logger)
+                return
+            except Exception as e:
+                logger.error(f"Something went wrong, Try Again: {e}")
+                send_whatsapp_message(sender_no, "Something went wrong, Try Again.", logger)
+                return
+        
+        if classification.type == 'shopify':
+            shop, access_token = await fetch_shopify_credentials(userid, logger)
+            if not shop or not access_token:    
+                send_whatsapp_message(sender_no, "Shopify credentials are not configured. Please set them up to proceed.", logger)
+                return
+            await process_shopify_analysis(user_msg, sender_no, classification.message, shop, access_token)
+        else:
+            await process_analysis(user_msg, sender_no, classification, structured_metadata)
+        return
     except Exception as e:
         raise
     

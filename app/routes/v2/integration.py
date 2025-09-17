@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Request, BackgroundTasks, Query
 from app.config.logger import get_logger
 from app.controllers.integrations import whatsapp_controller
-from app.controllers.integrations.shopify_controllers import shopify_auth_controller
+from app.controllers.integrations.shopify_controllers import shopify_auth_controller, shopify_chat_controller
 
 logger = get_logger("API Logger")
 router = APIRouter()
@@ -42,3 +42,7 @@ async def initiate_shopify_auth(request: Request, shop: str, host: str):
 @router.get("/auth/shopify/callback", tags=["Shopify Auth"])
 async def shopify_auth_callback(request: Request):
     return await shopify_auth_controller.shopify_auth_callback(request)
+
+@router.post("/shopify/query")
+async def shopify_query_analysis(request: Request):
+    return await shopify_chat_controller.response_shopify_query(request)

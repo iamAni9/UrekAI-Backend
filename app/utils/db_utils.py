@@ -230,4 +230,37 @@ async def save_token_to_db(shop_name: str, access_token: str, email: str, owner_
     except Exception as e:
         logger.error(f"Failed to insert shopify data: {e}")
         raise
-    
+
+async def get_token_from_db(shop_name: str, logger):
+    try:
+        query = """
+            SELECT EXISTS (
+                SELECT 1 
+                FROM registered_shopify_store 
+                WHERE store_name = :store_name 
+                AND access_token IS NOT NULL
+            )
+        """
+        access_token_exists = await db.fetch_val(query, {"store_name": shop_name})
+        return access_token_exists
+    except Exception as e:
+        logger.error(f"Failed to retrieve access_token using store_name: {e}")
+        return None
+
+async def fetch_shopify_credentials(user_id: str, logger):
+    try:
+        query = """
+            SELECT rss.store_name, rss.access_token
+            FROM registered_shopify_store rss
+            JOIN users u ON rss.id = u.id
+            WHERE u.id = :user_id
+        """
+        result = await db.fetch_one(query, {"user_id": user_id})
+        if result:
+            return result["store_name"], result["access_token"]
+        else:
+            logger.warning(f"No Shopify credentials found for user_id: {user_id}")
+            return None, None
+    except Exception as e:
+        logger.error(f"Failed to fetch Shopify credentials for user_id {user_id}: {e}")
+        return None, None

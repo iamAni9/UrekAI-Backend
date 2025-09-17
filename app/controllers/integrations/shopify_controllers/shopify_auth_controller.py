@@ -2,7 +2,7 @@ from fastapi import Request
 from fastapi.responses import RedirectResponse
 from app.config.settings import settings
 import hmac
-from app.utils.db_utils import save_token_to_db
+from app.utils.db_utils import save_token_to_db, get_token_from_db
 from app.config.logger import get_logger
 import hashlib
 import httpx
@@ -15,12 +15,27 @@ async def shopify_auth_redirect(request: Request, shop: str, host: str):
         if not shop:
             return {"error": "Missing shop parameter"}, 400
 
-        # Check if request is from embedded iframe
+        # 1. Checking if the shop has already installed the app and has a token
+        stored_token = await get_token_from_db(shop, logger)
+
+        if stored_token:
+            # 2. Token exists, redirecting straight to the app dashboard
+            logger.info(f"Token found for {shop}. Redirecting to dashboard.")
+            embedded = request.query_params.get('embedded', '1')
+            dashboard_url = f"{settings.APP_URL}/shopify/dashboard?shop={shop}&host={host}&embedded={embedded}"
+            
+            if embedded == '1':
+                response = RedirectResponse(url=dashboard_url)
+                response.headers["Content-Security-Policy"] = f"frame-ancestors https://{shop} https://admin.shopify.com;"
+                return response
+        
+        
+        # Checking if request is from embedded iframe
         embedded = request.query_params.get('embedded', '0')
         
         redirect_uri = f"{request.base_url}v2/api/integration/auth/shopify/callback"
         
-        # Add state parameter for security
+        # Adding state parameter for security
         state = f"{host}|{embedded}"
         
         permission_url = (
@@ -33,7 +48,7 @@ async def shopify_auth_redirect(request: Request, shop: str, host: str):
 
         logger.info(f"permission_url: {permission_url}")
         
-        # Create response with CSP headers
+        # Creating response with CSP headers
         response = RedirectResponse(url=permission_url)
         response.headers["Content-Security-Policy"] = f"frame-ancestors https://{shop} https://admin.shopify.com;"
         
@@ -126,7 +141,7 @@ async def shopify_auth_callback(request: Request):
         logger.error(f"An unexpected error occurred during token exchange: {str(e)}")
         return {"error": "Internal server error during token exchange."}, 500
 
-    # Redirect with proper CSP headers
+    # Redirecting with proper CSP headers
     final_redirect_url = f"{settings.APP_URL}/shopify/dashboard?shop={shop}&host={host}&embedded={embedded}"
     logger.info(f"Redirecting to frontend dashboard at: {final_redirect_url}")
     

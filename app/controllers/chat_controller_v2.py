@@ -3,9 +3,8 @@ from starlette.websockets import WebSocketState
 from app.utils.uniqueId import str_to_uuid
 from app.config.logger import get_logger
 from app.helper.query_analysis_helper import *
-from app.ai.gemini import query_ai
 import asyncio
-from app.config.constants import MAX_EVAL_ITERATION, INITIAL_RETRY_DELAY
+from app.config.constants import MAX_EVAL_ITERATION
 
 logger = get_logger("API Logger")
 

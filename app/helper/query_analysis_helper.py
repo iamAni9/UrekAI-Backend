@@ -1,16 +1,14 @@
 from fastapi import WebSocket
-import asyncio
-import re
 import json
-import random
+import re
 from pydantic import BaseModel
 from app.config.database_config.postgres import database as db
-from app.config.constants import MAX_RETRY_ATTEMPTS, INITIAL_RETRY_DELAY
 from app.config.logger import get_logger
 from app.config.prompts.prompts_v2 import QUERY_CLASSIFICATION_PROMPT, SQL_GENERATION_PROMPT, GENERATE_ANALYSIS_FOR_USER_QUERY_PROMPT, ANALYSIS_EVAL_PROMPT
 from app.config.prompts.whatsapp_prompts import WHATSAPP_QUERY_CLASSIFICATION_PROMPT, WHATSAPP_DATA_MANAGEMENT_PROMPT
 from typing import Dict, List, Optional, Any
 from app.ai.gemini import query_ai
+from app.utils.analysis_process_utils import retry_operation, clean_json_string
 
 logger = get_logger("API Logger")
 
@@ -32,56 +30,6 @@ class QueryResponse(BaseModel):
 async def send_socket_message(websocket: WebSocket, type: str, content: any):
     await websocket.send_json({"type": type, "content": content})
     
-async def sleep_ms(ms: int):
-    """Sleep for milliseconds"""
-    await asyncio.sleep(ms / 1000.0)
-
-async def retry_operation(
-    operation,
-    operation_name: str,
-    max_retries: int = MAX_RETRY_ATTEMPTS,
-    initial_delay: int = INITIAL_RETRY_DELAY
-):
-    """Retry operation with exponential backoff"""
-    last_error = None
-    
-    for attempt in range(1, max_retries + 1):
-        try:
-            return await operation()
-        except Exception as error:
-            last_error = error
-            # Exponential backoff + jitter
-            delay = min(
-                initial_delay * (2 ** (attempt - 1)) + random.randint(0, 1000),
-                30000  # Max 30s delay
-            )
-            
-            logger.warning(f"{operation_name} failed (attempt {attempt}/{max_retries}): {str(error)}")
-            
-            if attempt < max_retries:
-                logger.info(f"Retrying {operation_name} in {delay}ms...")
-                await sleep_ms(delay)
-    
-    raise Exception(f"{operation_name} failed after {max_retries} attempts. Last error: {str(last_error)}")
-
-def clean_json_string(json_str: str) -> str:
-    json_match = re.search(r'```(?:json)?\s*(\{[\s\S]*?\})\s*```', json_str)
-    
-    if json_match:
-        json_str = json_match.group(1)
-    
-    
-    json_str = (json_str
-                .replace('\n', ' ')
-                .replace('\r', ' ')
-                .replace('  ', ' ')
-                .strip())
-    
-    # Adding quotes to unquoted property names
-    json_str = re.sub(r'([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)(\s*:)', r'\1"\2"\3', json_str)
-    
-    return json_str
-
 async def fetch_user_metadata(user_id: str) -> Optional[List[Dict[str, Any]]]:
     try:
         query = """
@@ -147,7 +95,7 @@ async def classify_query(user_query: str, medium = None) -> QueryClassification:
                 message='Unable to parse classification, defaulting to general query'
             )
     
-    return await retry_operation(classify_operation, 'Query Classification')
+    return await retry_operation(classify_operation, 'Query Classification', logger=logger)
 
 def inject_safe_where(query: str) -> str:
     """Safely wrap WHERE clause conditions with (1=0 OR ...)."""
@@ -199,7 +147,7 @@ async def data_management_selection(
         clean_selection = clean_json_string(str(selection_response))
         return json.loads(clean_selection)
     
-    return await retry_operation(generate_operation, 'Data Management Operation')
+    return await retry_operation(generate_operation, 'Data Management Operation', logger=logger)
 
 async def generate_sql_queries(
     user_query: str, 
@@ -229,7 +177,7 @@ async def generate_sql_queries(
     async def generate_operation():
         return await query_ai(user_prompt, system_prompt)
     
-    return await retry_operation(generate_operation, 'SQL Multi-Query Generation')
+    return await retry_operation(generate_operation, 'SQL Multi-Query Generation', logger=logger)
 
 def parse_generated_queries(generated_queries_raw: Any) -> Optional[List[Dict[str, Any]]]:
     """Parse generated SQL queries"""
@@ -276,7 +224,7 @@ async def execute_query(sql_query: str) -> List[Dict[str, Any]]:
         result = await db.fetch_all(sql_query)
         return [dict(row) for row in result]
     
-    return await retry_operation(query_operation, 'SQL Query Execution')
+    return await retry_operation(query_operation, 'SQL Query Execution', logger=logger)
 
 async def execute_parsed_queries(queries_with_charts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     results = []
@@ -336,7 +284,7 @@ async def generate_analysis(query_results: str, user_query: str, classification_
                 logger.error(f'Failed to parse analysis response: {dirty_string}')
                 raise Exception('Failed to parse analysis response after attempting repair')
     
-    return await retry_operation(analysis_operation, 'LLM Analysis Generation')
+    return await retry_operation(analysis_operation, 'LLM Analysis Generation', logger=logger)
 
 async def analysis_evaluation(analysis_data: Any, query_results: str, user_query: str, llm_suggestions) -> Dict[str, Any]:
     system_prompt = ANALYSIS_EVAL_PROMPT["systemPrompt"]
@@ -376,4 +324,4 @@ async def analysis_evaluation(analysis_data: Any, query_results: str, user_query
             logger.error(f"Failed to parse analysis response: {cleaned}")
             raise Exception('Failed to parse analysis response')
     
-    return await retry_operation(eval_operation, 'LLM Answer Evaluation')
+    return await retry_operation(eval_operation, 'LLM Answer Evaluation', logger=logger)
