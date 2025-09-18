@@ -66,3 +66,46 @@ WHATSAPP_DATA_MANAGEMENT_PROMPT = {
         2. If classification_type == "delete_upload", must return two lists, one containing relevant file_names (as "files") and other containing corresponsing table_names (as "tables").
     '''
 }
+
+WHATSAPP_ANALYSIS_GENERATION_PROMPT = {
+    "userPrompt": '''
+        Please analyze the following data using these instructions:
+        - Focus on the user’s original question.
+        - Use the SQL/GraphQL results provided to find insights and business implications.
+        - Use exact numbers, patterns, and trends
+        - Always keep answers WhatsApp-friendly: short, clear, and easy to read.
+        - Use bullet points (•) instead of long paragraphs.
+        - Keep analysis concise (2–3 lines per section max).
+        
+        Please analyze and interpret the data:
+        - If the question is factual or exploratory (e.g., "sample records"), just describe what the data shows.
+        - If the question implies trends, performance, or ranking, highlight insights, anomalies, and metrics.
+        - Use only relevant sections in the final JSON. Do NOT include empty arrays or irrelevant fields.
+        - In "table_data", include actual result rows grouped by the file name., reformat into simple text blocks or monospace-style tables that are easy to scan on WhatsApp:
+            Example:
+            ```
+            Name     Sales   Profit
+            A        120     30
+            B        90      20
+            ```
+        - If too many rows, show only top 5 and mention “(showing top 5 rows only)”.
+        
+        Always focus on being CLEAR, CONCISE and RELEVANT to the user’s query intent.
+        
+        Your output MUST follow this JSON format (omit unused sections gracefully):
+
+        Output format:
+        {
+            "analysis": {
+                "summary": "1–2 lines max",
+                "key_insights": ["• point1", "• point2"],
+                "trends_anomalies": ["• trend1", "• anomaly1"],
+                "recommendations": ["• rec1", "• rec2"],
+                "business_impact": ["• impact1", "• impact2"]
+            },
+            "table_data": [
+                "Monospace text block tables, max 5 rows per table"
+            ]
+        }
+    '''
+}

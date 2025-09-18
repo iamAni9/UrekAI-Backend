@@ -9,38 +9,17 @@ from app.config.integration_config.whatsapp import whatsapp_channel
 from app.config.settings import settings
 from pathlib import Path
 from app.config.constants import MAX_EVAL_ITERATION
+import json
 
 logger = get_logger("Whatsapp Logger")
 
-def format_table_data(table_data: dict) -> str:
+def format_table_data(table_data: any) -> str:
     if table_data is None:
         return None
-    parts = []
-
-    for table_name, rows in table_data.items():
-        if not rows:
-            continue
-
-        headers = list(rows[0].keys())
-
-        col_widths = {
-            h: max(len(str(h)), max(len(str(r.get(h, ""))) for r in rows))
-            for h in headers
-        }
-
-        header_line = " | ".join(f"{h.ljust(col_widths[h])}" for h in headers)
-        separator = "-+-".join("-" * col_widths[h] for h in headers)
-
-        row_lines = []
-        for r in rows:
-            row_lines.append(
-                " | ".join(str(r.get(h, "")).ljust(col_widths[h]) for h in headers)
-            )
-
-        table_text = "\n".join([f"*{table_name}*:", header_line, separator] + row_lines)
-        parts.append(table_text)
-
-    return "\n\n".join(parts)
+    if isinstance(table_data, list):
+        return "\n\n".join(table_data)
+    else:
+        return str(table_data)
 
 def format_analysis(analysis: dict) -> str:
     if analysis is None:
@@ -150,7 +129,7 @@ async def process_shopify_analysis(user_msg: str, sender_no: str, classification
                 structured_result = "\n".join(structured_result_lines)
                 logger.info(f"Queries and results: {structured_result}")
                 
-                analysis_results = await generate_analysis(structured_result, user_msg, classification_message)
+                analysis_results = await generate_analysis(structured_result, user_msg, classification_message, "WhatsApp")
 
                 if not analysis_results:
                     logger.warning('Generated analysis failed evaluation')
@@ -228,8 +207,7 @@ async def process_analysis(user_msg: str, sender_no: str, classification, struct
                 structured_result = "\n".join(structured_result_lines)
                 logger.info(f"Queries and results: {structured_result}")
                 
-                analysis_results = await generate_analysis(structured_result, user_msg, classification.message)
-
+                analysis_results = await generate_analysis(structured_result, user_msg, classification.message, "WhatsApp")
                 if not analysis_results:
                     logger.warning('Generated analysis failed evaluation')
                     continue
@@ -240,13 +218,16 @@ async def process_analysis(user_msg: str, sender_no: str, classification, struct
                 
                 if evaluation.get('good_result') == 'Yes':
                     logger.info(f"Analysis Data: {analysis_results}")
-                    analysis_text = format_analysis(analysis_results["analysis"])
-                    table_data = format_table_data(analysis_results["table_data"])
-                    send_whatsapp_message(sender_no, analysis_text, logger)
-                    send_whatsapp_message(sender_no, table_data, logger)
+                    analysis_text = format_analysis(analysis_results.get("analysis"))
+                    table_data = format_table_data(analysis_results.get("table_data"))
+                    if analysis_text:
+                        send_whatsapp_message(sender_no, analysis_text, logger)
+                    if table_data:
+                        send_whatsapp_message(sender_no, table_data, logger)
                     break
 
                 llm_suggestions = evaluation.get('required')
+                analysis_results = None
                 
         if not analysis_results:
             send_whatsapp_message(sender_no, 'Failed to generate a good analysis after multiple attempts. Try again.', logger)

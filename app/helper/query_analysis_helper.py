@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from app.config.database_config.postgres import database as db
 from app.config.logger import get_logger
 from app.config.prompts.prompts_v2 import QUERY_CLASSIFICATION_PROMPT, SQL_GENERATION_PROMPT, GENERATE_ANALYSIS_FOR_USER_QUERY_PROMPT, ANALYSIS_EVAL_PROMPT
-from app.config.prompts.whatsapp_prompts import WHATSAPP_QUERY_CLASSIFICATION_PROMPT, WHATSAPP_DATA_MANAGEMENT_PROMPT
+from app.config.prompts.whatsapp_prompts import WHATSAPP_QUERY_CLASSIFICATION_PROMPT, WHATSAPP_DATA_MANAGEMENT_PROMPT, WHATSAPP_ANALYSIS_GENERATION_PROMPT
 from typing import Dict, List, Optional, Any
 from app.ai.gemini import query_ai
 from app.utils.analysis_process_utils import retry_operation, clean_json_string
@@ -248,15 +248,19 @@ async def execute_parsed_queries(queries_with_charts: List[Dict[str, Any]]) -> L
     
     return results
 
-async def generate_analysis(query_results: str, user_query: str, classification_type: str) -> Dict[str, Any]:    
+async def generate_analysis(query_results: str, user_query: str, classification_type: str, medium = None) -> Dict[str, Any]:
     system_prompt = GENERATE_ANALYSIS_FOR_USER_QUERY_PROMPT["systemPrompt"]
+    if medium == "WhatsApp":
+        user_analysis_instructions = WHATSAPP_ANALYSIS_GENERATION_PROMPT["userPrompt"]
+    else:
+        user_analysis_instructions = GENERATE_ANALYSIS_FOR_USER_QUERY_PROMPT["userPrompt"]
     user_prompt = f"""
         Context:
         - Query Results: {json.dumps(query_results)}
         - Original User Question: {user_query}
         - Query Classification Message: {classification_type}
 
-        {GENERATE_ANALYSIS_FOR_USER_QUERY_PROMPT["userPrompt"]}
+        {user_analysis_instructions}
     """
     
     async def analysis_operation():

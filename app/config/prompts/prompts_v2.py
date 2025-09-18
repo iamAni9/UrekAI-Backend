@@ -151,6 +151,28 @@ GENERATE_ANALYSIS_FOR_USER_QUERY_PROMPT = {
         - Use only relevant sections and skip empty ones.
         - If the question is exploratory (e.g., "sample records"), keep analysis light and factual.
         - For trend or metric questions, include summaries, comparisons, and chart suggestions.
+    ''',
+
+    "userPrompt": '''
+        Please analyze the following data using the system instructions:
+
+        - Focus on the user's original question
+        - Use the SQL results provided to find insights and business implications
+        - Use exact numbers, patterns, and trends
+        
+        Please analyze and interpret the data:
+        - If the question is factual or exploratory (e.g., "sample records"), just describe what the data shows.
+        - If the question implies trends, performance, or ranking, highlight insights, anomalies, and metrics.
+        - If the data supports visual patterns, suggest relevant charts.
+        - Use only relevant sections in the final JSON. Do NOT include empty arrays or irrelevant fields.
+        
+        Output requirements:
+        - If query is too basic just answer with small summary like human otherwise based on the intent of the query and find the insights, trends, recommendations and business impact based on the intent.   
+        - In "table_data", include actual result rows grouped by the file name.
+        - In "graph_data", suggest UP TO (not necessarily)4 graphs. Mark one as `"primary"` if clearly most useful, and others as ‘secondary’.
+        - Keep JSON brackets (`{}` and `[]`) strictly valid to allow machine parsing.
+        
+        Always focus on being CLEAR, CONCISE and RELEVANT to the user’s query intent.
         
         Your output MUST follow this JSON format (omit unused sections gracefully):
         
@@ -183,30 +205,6 @@ GENERATE_ANALYSIS_FOR_USER_QUERY_PROMPT = {
             ...
           }
         }
-
-    ''',
-
-    "userPrompt": '''
-        Please analyze the following data using the system instructions:
-
-        - Focus on the user's original question
-        - Use the SQL results provided to find insights and business implications
-        - Use exact numbers, patterns, and trends
-        
-        Please analyze and interpret the data:
-        - If the question is factual or exploratory (e.g., "sample records"), just describe what the data shows.
-        - If the question implies trends, performance, or ranking, highlight insights, anomalies, and metrics.
-        - If the data supports visual patterns, suggest relevant charts.
-        - Use only relevant sections in the final JSON. Do NOT include empty arrays or irrelevant fields.
-        
-        Output requirements:
-        - If query is too basic just answer with small summary like human otherwise based on the intent of the query and find the insights, trends, recommendations and business impact based on the intent.   
-        - In "table_data", include actual result rows grouped by the file name.
-        - In "graph_data", suggest UP TO (not necessarily)4 graphs. Mark one as `"primary"` if clearly most useful, and others as ‘secondary’.
-        - Keep JSON brackets (`{}` and `[]`) strictly valid to allow machine parsing.
-        
-        Always focus on being CLEAR, CONCISE and RELEVANT to the user’s query intent.
-
     '''
 }
 
@@ -243,6 +241,7 @@ ANALYSIS_EVAL_PROMPT = {
         Return JSON only:
         {
           "good_result": "Yes" | "No",
+          "Compute total_score" : "Score value",
           "reason": "Brief justification referencing criteria and notable strengths/weaknesses",
           "required": "If good_result = 'No', provide a concise, improved prompt to regenerate analysis; else provide optional improvement tips"
         }
