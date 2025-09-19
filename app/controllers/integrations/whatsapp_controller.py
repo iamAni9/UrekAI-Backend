@@ -107,7 +107,7 @@ async def process_shopify_analysis(user_msg: str, sender_no: str, classification
             logger.info(f"Parsed queries: {parsed_queries}")
             
             query_results = await execute_shopify_queries(parsed_queries, shop, access_token)
-            # logger.info(f"Query executed successfully, {query_results}")
+            logger.info(f"Query executed successfully, {query_results}")
             
             if query_results and query_results[0]:
                 logger.info("Executing in loop")
@@ -184,7 +184,7 @@ async def process_analysis(user_msg: str, sender_no: str, classification, struct
             logger.info(f"Generated queries: {parsed_queries}")
 
             query_results = await execute_parsed_queries(parsed_queries)
-            logger.info("Query executed successfully")
+            logger.info(f"Query executed successfully - {query_results}")
             
             if query_results and query_results[0] and query_results[0].get('results'):
                 logger.info("Executing in loop")

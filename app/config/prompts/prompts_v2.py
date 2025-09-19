@@ -100,7 +100,10 @@ SQL_GENERATION_PROMPT = {
         - Add LIMIT 100 on non-aggregate queries.
         - Handle NULLs safely in aggregations.
         - Use exact ID matches where filtering is required.
-        
+        - String Filtering (Robust Rules):
+              * Default: Use wildcards (%) always as user may not provide complete strings.
+              * Use = only for exact matches when the user specifies a full, precise value.
+                     
         Typecasting Guidelines:
         - You will be given a JSON structure like this:
             ```json
