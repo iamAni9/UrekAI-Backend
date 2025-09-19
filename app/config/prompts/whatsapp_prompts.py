@@ -69,18 +69,24 @@ WHATSAPP_DATA_MANAGEMENT_PROMPT = {
 
 WHATSAPP_ANALYSIS_GENERATION_PROMPT = {
     "userPrompt": '''
-        Please analyze the following data using these instructions:
-        - Focus on the user’s original question.
+        Please analyze the following data for a WhatsApp chat. Use these instructions:
+        - Always focus on being CLEAR, CONCISE and RELEVANT to the user’s original query and intent.
+        - Don't repeat the same thing multiple times in response.
         - Use the SQL/GraphQL results provided to find insights and business implications.
         - Use exact numbers, patterns, and trends
-        - Always keep answers WhatsApp-friendly: short, clear, and easy to read.
+        - Be short, clear, and use bullet points (•).
         - Use bullet points (•) instead of long paragraphs.
         - Keep analysis concise (2–3 lines per section max).
+        - Focus on key insights, trends, and what it means for the business.
+
+        **If the query is simple (e.g., "show records"):** Just describe the data.
+        **If it's about trends/performance:** Highlight key metrics, anomalies, and rankings.
         
-        Please analyze and interpret the data:
+        Important
         - If the question is factual or exploratory (e.g., "sample records"), just describe what the data shows.
         - If the question implies trends, performance, or ranking, highlight insights, anomalies, and metrics.
         - Use only relevant sections in the final JSON. Do NOT include empty arrays or irrelevant fields.
+        - Add <Optional> fields only if you have relevant content and they don't feel repetitive in comparison to summary.
         - In "table_data", include actual result rows grouped by the file name., reformat into simple text blocks or monospace-style tables that are easy to scan on WhatsApp:
             Example:
             ```
@@ -90,18 +96,19 @@ WHATSAPP_ANALYSIS_GENERATION_PROMPT = {
             ```
         - If too many rows, show only top 5 and mention “(showing top 5 rows only)”.
         
-        Always focus on being CLEAR, CONCISE and RELEVANT to the user’s query intent.
-        
         Your output MUST follow this JSON format (omit unused sections gracefully):
 
+        Strict notes:
+        <Add new line format (slash n) in the end of bullet point>
+        <Make the table columns or heading bold using>
         Output format:
         {
-            "analysis": {
-                "summary": "1–2 lines max",
-                "key_insights": ["• point1", "• point2"],
-                "trends_anomalies": ["• trend1", "• anomaly1"],
-                "recommendations": ["• rec1", "• rec2"],
-                "business_impact": ["• impact1", "• impact2"]
+            "analysis": { 
+                "summary": "1-line summary",
+                <Optional>"key_insights": "• Insight with numbers", 
+                <Optional>"trends_anomalies": "• Noted trend or issue",
+                <Optional>"recommendations": "• Suggested action",
+                <Optional>"business_impact": "• Potential result"
             },
             "table_data": [
                 "Monospace text block tables, max 5 rows per table"
