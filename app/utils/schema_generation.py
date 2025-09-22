@@ -7,6 +7,7 @@ from app.config.constants import SCHEMA_BATCH_SIZE
 from app.utils.db_utils import insert_analysis_data
 import csv
 from io import StringIO
+import asyncio
     
 def get_row_length(row):
     return len(next(csv.reader(StringIO(row), skipinitialspace=True)))
@@ -88,7 +89,8 @@ async def generate_table_schema(conn, userid, table_name, original_file_name, sa
     try:
         logger.info(f"Starting schema generation for table {table_name}")
         column_batches, max_length = split_sample_rows_by_column_batch(sample_rows, SCHEMA_BATCH_SIZE)
-        schemas = []
+        # schemas = []
+        tasks = []
 
         for i, batch in enumerate(column_batches):
             logger.info(f"Processing batch {i + 1}/{len(column_batches)}")
@@ -100,10 +102,15 @@ async def generate_table_schema(conn, userid, table_name, original_file_name, sa
             logger.info(f"Row1: {batch.get('row01')}")
             logger.info(f"Column Count: {col_count}")
             
-            schema = await get_schema(table_name, list(batch.values()), col_count, logger)
-            schemas.append(schema)
+            # schema = await get_schema(table_name, list(batch.values()), col_count, logger)
+            # schemas.append(schema)
+            task = get_schema(table_name, list(batch.values()), col_count, logger)
+            tasks.append(task)
 
-        logger.info(f"Schema: {schemas}")
+        # logger.info(f"Schema: {schemas}")
+        logger.info(f"Executing all {len(tasks)} batches concurrently.")
+        schemas = await asyncio.gather(*tasks)
+        logger.info("All batches have been processed.")
         merged_schema = {
             "schema": {"columns": []},
             "contain_columns": {"contain_column": "NO"},
